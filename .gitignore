@@ -1,0 +1,14 @@
+node_modules/
+dist/
+build/
+.next/
+.cache/
+.env
+.env.*
+!.env.example
+*.log
+app-meta.json
+.DS_Store
+.venv/
+__pycache__/
+*.pyc
