@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   createCommunity, joinCommunityByCode, joinPublicCommunity,
   listMyCommunities, listListedCommunities,
-  VISIBILITY_DESC, VISIBILITY_LABEL,
+  VISIBILITY_LABEL,
   type Community, type CommunityVisibility,
 } from '../lib/communities';
 import { navigate } from '../lib/router';
@@ -13,11 +13,38 @@ interface Props {
   onSignInClick: () => void;
 }
 
-const VIS_OPTIONS: { id: CommunityVisibility; tagline: string }[] = [
-  { id: 'private', tagline: 'Hidden circle, invite-only.' },
-  { id: 'listed',  tagline: 'Visible in the directory; songs hidden until joined.' },
-  { id: 'public',  tagline: 'Anyone can read & join. Members add songs.' },
-  { id: 'open',    tagline: 'Anyone signed in can view, join, AND add songs.' },
+interface VisOption {
+  id: CommunityVisibility;
+  joinLabel: string;
+  contributeLabel: string;
+  tagline: string;
+}
+
+const VIS_OPTIONS: VisOption[] = [
+  {
+    id: 'private',
+    joinLabel: 'Invite-only',
+    contributeLabel: 'Any member can add songs',
+    tagline: 'Hidden from the directory. Friends join by invite link. Inside, every member can add songs and create playlists.',
+  },
+  {
+    id: 'listed',
+    joinLabel: 'Invite-only',
+    contributeLabel: 'Any member can add songs',
+    tagline: 'Listed in the directory so people see it exists. Songs and members are hidden until you join with an invite link.',
+  },
+  {
+    id: 'public',
+    joinLabel: 'Anyone can join',
+    contributeLabel: 'Members add songs',
+    tagline: 'Anyone can browse the songs and members. Joining lets you add songs and playlists yourself.',
+  },
+  {
+    id: 'open',
+    joinLabel: 'Anyone can join',
+    contributeLabel: 'Anyone signed in can add',
+    tagline: 'A full jam room — any signed-in user can drop a song in, no membership required.',
+  },
 ];
 
 export function CommunitiesPage({ signedIn, onSignInClick }: Props) {
@@ -132,9 +159,12 @@ export function CommunitiesPage({ signedIn, onSignInClick }: Props) {
                   onChange={() => setDraftVis(opt.id)}
                 />
                 <div className="vis-option-text">
-                  <strong>{VISIBILITY_LABEL[opt.id]}</strong>
+                  <div className="vis-option-head">
+                    <strong>{VISIBILITY_LABEL[opt.id]}</strong>
+                    <span className={`card-pill card-vis-${opt.id}`}>{opt.joinLabel}</span>
+                    <span className="card-pill">{opt.contributeLabel}</span>
+                  </div>
                   <small>{opt.tagline}</small>
-                  <small className="vis-detail">{VISIBILITY_DESC[opt.id]}</small>
                 </div>
               </label>
             ))}
@@ -194,7 +224,7 @@ function CommunityCard({ community, joined, onJoin }: { community: Community; jo
   return (
     <article className="card" onClick={() => navigate({ name: 'community', slug: community.slug })}>
       <div className="card-title">{community.name}</div>
-      <div className="card-artist">{community.description || VISIBILITY_DESC[community.visibility]}</div>
+      <div className="card-artist">{community.description || '—'}</div>
       <div className="card-foot">
         <span className={visClass}>{VISIBILITY_LABEL[community.visibility]}</span>
         {joined && <span className="card-pill" style={{ borderColor: 'var(--accent)', color: 'var(--accent)' }}>Joined</span>}

@@ -10,7 +10,8 @@ export type Route =
   | { name: 'join'; code: string }
   | { name: 'import'; from?: string | null }
   | { name: 'edit'; id: string }
-  | { name: 'song'; id: string };
+  | { name: 'song'; id: string }
+  | { name: 'profile' };
 
 function parseHash(raw: string): Route {
   const h = raw.replace(/^#\/?/, '').split('?')[0];
@@ -19,6 +20,7 @@ function parseHash(raw: string): Route {
   if (h === 'library') return { name: 'library' };
   if (h === 'playlists') return { name: 'playlists' };
   if (h === 'communities') return { name: 'communities' };
+  if (h === 'profile') return { name: 'profile' };
   if (h === 'import') return { name: 'import', from: params.get('from') };
   if (h.startsWith('playlist/'))  return { name: 'playlist',  id: decodeURIComponent(h.slice(9)) };
   if (h.startsWith('community/')) return { name: 'community', slug: decodeURIComponent(h.slice(10)) };
@@ -47,6 +49,7 @@ export function navigate(route: Route): void {
     case 'playlist':    hash = `#/playlist/${encodeURIComponent(route.id)}`; break;
     case 'communities': hash = '#/communities'; break;
     case 'community':   hash = `#/community/${encodeURIComponent(route.slug)}`; break;
+    case 'profile':     hash = '#/profile'; break;
     case 'join':        hash = `#/join/${encodeURIComponent(route.code)}`; break;
     case 'import':      hash = '#/import' + (route.from ? `?from=${encodeURIComponent(route.from)}` : ''); break;
     case 'edit':        hash = `#/edit/${encodeURIComponent(route.id)}`; break;

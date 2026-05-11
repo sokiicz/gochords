@@ -26,6 +26,7 @@ import { PlaylistDetailPage } from './views/PlaylistDetailPage';
 import { CommunitiesPage } from './views/CommunitiesPage';
 import { CommunityDetailPage } from './views/CommunityDetailPage';
 import { JoinPage } from './views/JoinPage';
+import { ProfilePage } from './views/ProfilePage';
 
 export default function App() {
   const auth = useAuth();
@@ -313,6 +314,16 @@ export default function App() {
           code={route.code}
           signedIn={signedIn}
           onSignInClick={(reason) => setSignInModal({ reason })}
+        />
+      );
+      break;
+    case 'profile':
+      main = (
+        <ProfilePage
+          signedIn={signedIn}
+          email={auth.user?.email ?? null}
+          onSignInClick={() => setSignInModal({ reason: 'Sign in to access your profile.' })}
+          onToast={pushToast}
         />
       );
       break;

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { signInWithEmail, signInWithGoogle, signOut, useAuth } from '../lib/auth';
+import { navigate } from '../lib/router';
 import { Icon } from './Icon';
 
 interface AuthMenuProps {
@@ -27,6 +28,9 @@ export function AuthMenu({ onSignInRequest }: AuthMenuProps) {
             <div className="auth-name">{name}</div>
             <div className="auth-email">{auth.user.email}</div>
             <hr />
+            <button className="auth-row" onClick={() => { setOpen(false); navigate({ name: 'profile' }); }}>
+              Profile settings
+            </button>
             <button className="auth-row danger" onClick={() => { setOpen(false); signOut(); }}>
               Sign out
             </button>
