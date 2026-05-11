@@ -39,9 +39,7 @@ const fromDb = (r: DbCommunity): Community => ({
   createdAt: new Date(r.created_at).getTime(),
 });
 
-const slugify = (name: string): string =>
-  name.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 64) || `c-${Date.now()}`;
-const inviteCode = () => Math.random().toString(36).slice(2, 10).toUpperCase();
+// Slug + invite-code generation now lives inside the create_community RPC.
 
 export async function listListedCommunities(): Promise<Community[]> {
   const sb = requireSupabase();
@@ -96,29 +94,17 @@ export interface CreateCommunityInput {
 
 export async function createCommunity(input: CreateCommunityInput): Promise<Community> {
   const sb = requireSupabase();
-  const { data: u } = await sb.auth.getUser();
-  if (!u.user) throw new Error('Sign in to create a community.');
-  const slugBase = slugify(input.name);
   const visibility = input.visibility ?? 'private';
-  for (let i = 0; i < 5; i++) {
-    const attempt = i === 0 ? slugBase : `${slugBase}-${Math.random().toString(36).slice(2, 5)}`;
-    const { data, error } = await sb
-      .from('communities')
-      .insert({
-        slug: attempt,
-        name: input.name,
-        description: input.description ?? null,
-        visibility,
-        invite_code: visibility === 'private' || visibility === 'listed' ? inviteCode() : null,
-        owner_id: u.user.id,
-      })
-      .select()
-      .maybeSingle();
-    if (data) return fromDb(data);
-    if (error && /duplicate|unique/i.test(error.message)) continue;
-    if (error) throw error;
-  }
-  throw new Error('Could not generate a unique slug. Try a different name.');
+  // Call the SECURITY DEFINER RPC — handles slug, invite code, and the
+  // owner-as-member row in a single transaction, bypassing RLS.
+  const { data, error } = await sb.rpc('create_community', {
+    c_name: input.name,
+    c_description: input.description ?? null,
+    c_visibility: visibility,
+  });
+  if (error) throw error;
+  if (!data) throw new Error('Could not create community.');
+  return fromDb(data as DbCommunity);
 }
 
 export async function joinCommunityByCode(code: string): Promise<Community> {
