@@ -9,9 +9,10 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onImport: () => void;
+  onSignInRequest: () => void;
 }
 
-export function NavSidebar({ route, cloudEnabled, signedIn, open, onClose, onImport }: Props) {
+export function NavSidebar({ route, cloudEnabled, signedIn, open, onClose, onImport, onSignInRequest }: Props) {
   const go = (r: Route) => { navigate(r); onClose(); };
   const is = (n: Route['name']) => route.name === n;
 
@@ -53,7 +54,7 @@ export function NavSidebar({ route, cloudEnabled, signedIn, open, onClose, onImp
         </button>
 
         <div className="nav-footer">
-          {cloudEnabled ? <AuthMenu /> : <span className="nav-offline">Offline mode</span>}
+          {cloudEnabled ? <AuthMenu onSignInRequest={onSignInRequest} /> : <span className="nav-offline">Offline mode</span>}
         </div>
       </aside>
     </>

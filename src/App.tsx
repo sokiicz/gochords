@@ -378,6 +378,7 @@ export default function App() {
         open={navOpen}
         onClose={() => setNavOpen(false)}
         onImport={openImport}
+        onSignInRequest={() => setSignInModal({})}
       />
       <button className="mobile-menu-btn" onClick={() => setNavOpen(true)} aria-label="Open menu">
         <Icon name="menu" />

@@ -2,10 +2,14 @@ import { useState } from 'react';
 import { signInWithEmail, signInWithGoogle, signOut, useAuth } from '../lib/auth';
 import { Icon } from './Icon';
 
-export function AuthMenu() {
+interface AuthMenuProps {
+  /** Called when an unauthenticated user clicks "Sign in". App owns the modal so it can render above every stacking context. */
+  onSignInRequest: () => void;
+}
+
+export function AuthMenu({ onSignInRequest }: AuthMenuProps) {
   const auth = useAuth();
   const [open, setOpen] = useState(false);
-  const [signinOpen, setSigninOpen] = useState(false);
 
   if (auth.status === 'unavailable') return null;
 
@@ -33,13 +37,10 @@ export function AuthMenu() {
   }
 
   return (
-    <>
-      <button className="auth-rail-signin" onClick={() => setSigninOpen(true)}>
-        <Icon name="users" size={14} />
-        <span>Sign in</span>
-      </button>
-      {signinOpen && <SignInModal onClose={() => setSigninOpen(false)} />}
-    </>
+    <button className="auth-rail-signin" onClick={onSignInRequest}>
+      <Icon name="users" size={14} />
+      <span>Sign in</span>
+    </button>
   );
 }
 
@@ -47,6 +48,8 @@ interface SignInModalProps {
   onClose: () => void;
   reason?: string;
 }
+
+import { createPortal } from 'react-dom';
 
 export function SignInModal({ onClose, reason }: SignInModalProps) {
   const [email, setEmail] = useState('');
@@ -83,7 +86,7 @@ export function SignInModal({ onClose, reason }: SignInModalProps) {
     }
   };
 
-  return (
+  return createPortal(
     <div className="modal-backdrop" onClick={onClose}>
       <div className="signin-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="signin-header">
@@ -130,7 +133,8 @@ export function SignInModal({ onClose, reason }: SignInModalProps) {
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
