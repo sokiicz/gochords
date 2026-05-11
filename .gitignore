@@ -12,3 +12,5 @@ app-meta.json
 .venv/
 __pycache__/
 *.pyc
+tsconfig.tsbuildinfo
+devserver.log

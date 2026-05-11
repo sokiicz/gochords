@@ -1,0 +1,56 @@
+import { memo } from 'react';
+import type { Song } from '../lib/parser';
+
+interface Props {
+  song: Song;
+  onChordClick: (chord: string) => void;
+}
+
+function ChordSheetImpl({ song, onChordClick }: Props) {
+  return (
+    <div className="sheet">
+      {song.sections.map((section, si) => (
+        <section key={si} className="sheet-section">
+          {section.label && <h3 className="sheet-section-label">{section.label}</h3>}
+          {section.lines.map((line, li) => {
+            if (line.kind === 'tab') {
+              return (
+                <pre key={li} className="sheet-tab" aria-label="Tablature">
+                  {line.rows.join('\n')}
+                </pre>
+              );
+            }
+            const isBlank =
+              line.units.length === 1 && line.units[0].chord === null && line.units[0].lyric === '';
+            if (isBlank) return <div key={li} className="sheet-line sheet-line-blank" />;
+            return (
+              <div key={li} className="sheet-line">
+                {line.units.map((u, ui) => (
+                  <span key={ui} className="unit">
+                    <span className="unit-chord">
+                      {u.chord && (
+                        <button
+                          type="button"
+                          className="chord-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onChordClick(u.chord!);
+                          }}
+                        >
+                          {u.chord}
+                        </button>
+                      )}
+                    </span>
+                    <span className="unit-lyric">{u.lyric || ' '}</span>
+                  </span>
+                ))}
+              </div>
+            );
+          })}
+        </section>
+      ))}
+    </div>
+  );
+}
+
+export const ChordSheet = memo(ChordSheetImpl);
