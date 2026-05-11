@@ -163,13 +163,32 @@ export async function listCommunitySongs(communityId: string): Promise<CloudSong
 }
 
 export async function addSongToCommunity(communityId: string, songId: string): Promise<void> {
+  return addSongsToCommunity(communityId, [songId]).then(() => undefined);
+}
+
+export interface AddSongsResult {
+  added: number;
+  skipped: number;
+}
+
+export async function addSongsToCommunity(communityId: string, songIds: string[]): Promise<AddSongsResult> {
+  const unique = Array.from(new Set(songIds));
+  if (unique.length === 0) return { added: 0, skipped: 0 };
   const sb = requireSupabase();
   const { data: u } = await sb.auth.getUser();
   if (!u.user) throw new Error('Sign in.');
-  const { error } = await sb
+  const rows = unique.map((song_id) => ({
+    community_id: communityId,
+    song_id,
+    added_by: u.user!.id,
+  }));
+  const { data, error } = await sb
     .from('community_songs')
-    .upsert({ community_id: communityId, song_id: songId, added_by: u.user.id }, { onConflict: 'community_id,song_id' });
+    .upsert(rows, { onConflict: 'community_id,song_id', ignoreDuplicates: false })
+    .select('song_id');
   if (error) throw error;
+  const added = (data ?? []).length;
+  return { added, skipped: unique.length - added };
 }
 
 export async function removeSongFromCommunity(communityId: string, songId: string): Promise<void> {

@@ -10,17 +10,19 @@ import type { CloudSong } from '../lib/cloudSongs';
 import { fromCloud } from '../lib/songModel';
 import { navigate, navigateBack } from '../lib/router';
 import { Icon } from '../components/Icon';
+import { AddSongsToCommunityModal } from '../components/AddSongsToCommunityModal';
 
 interface Props {
   slug: string;
   signedIn: boolean;
   userId: string | null;
   onSignInClick: () => void;
+  onToast: (msg: string) => void;
 }
 
 type Tab = 'songs' | 'playlists' | 'members';
 
-export function CommunityDetailPage({ slug, signedIn, userId, onSignInClick }: Props) {
+export function CommunityDetailPage({ slug, signedIn, userId, onSignInClick, onToast }: Props) {
   const [community, setCommunity] = useState<Community | null>(null);
   const [songs, setSongs] = useState<CloudSong[]>([]);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
@@ -30,6 +32,7 @@ export function CommunityDetailPage({ slug, signedIn, userId, onSignInClick }: P
   const [tab, setTab] = useState<Tab>('songs');
   const [creatingPl, setCreatingPl] = useState(false);
   const [draftPlName, setDraftPlName] = useState('');
+  const [addOpen, setAddOpen] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -147,34 +150,46 @@ export function CommunityDetailPage({ slug, signedIn, userId, onSignInClick }: P
           </nav>
 
           {tab === 'songs' && (
-            songs.length === 0 ? (
-              <div className="page-empty">
-                <h3>No songs here yet</h3>
-                <p>{canAddContent
-                  ? 'Open a song and use ••• → "Share to community" to add it here.'
-                  : 'Members can add songs from their library or the catalog.'}</p>
-              </div>
-            ) : (
-              <div className="grid">
-                {songs.map((cs) => {
-                  const song = fromCloud(cs);
-                  return (
-                    <article key={song.id} className="card" onClick={() => navigate({ name: 'song', id: song.id })}>
-                      {canAddContent && (
-                        <button className="card-delete" onClick={(e) => handleRemoveSong(e, song.id)} aria-label="Remove">
-                          <Icon name="close" size={14} />
-                        </button>
-                      )}
-                      <div className="card-title">{song.title}</div>
-                      <div className="card-artist">{song.artist || 'Unknown'}</div>
-                      <div className="card-foot">
-                        {song.originalKey && <span className="card-pill card-pill-key">{song.originalKey}</span>}
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            )
+            <>
+              {canAddContent && (
+                <div className="banner" style={{ background: 'transparent', border: '1px dashed var(--border-strong)' }}>
+                  <span style={{ color: 'var(--text-dim)', fontSize: 13 }}>
+                    Pick songs from your library or add whole playlists at once.
+                  </span>
+                  <button className="primary-btn" style={{ marginLeft: 'auto' }} onClick={() => setAddOpen(true)}>
+                    <Icon name="plusCircle" size={14} /> Add songs
+                  </button>
+                </div>
+              )}
+              {songs.length === 0 ? (
+                <div className="page-empty">
+                  <h3>No songs here yet</h3>
+                  <p>{canAddContent
+                    ? 'Use "Add songs" above, or open a single song and ••• → Share to community.'
+                    : 'Members can add songs from their library or playlists.'}</p>
+                </div>
+              ) : (
+                <div className="grid">
+                  {songs.map((cs) => {
+                    const song = fromCloud(cs);
+                    return (
+                      <article key={song.id} className="card" onClick={() => navigate({ name: 'song', id: song.id })}>
+                        {canAddContent && (
+                          <button className="card-delete" onClick={(e) => handleRemoveSong(e, song.id)} aria-label="Remove">
+                            <Icon name="close" size={14} />
+                          </button>
+                        )}
+                        <div className="card-title">{song.title}</div>
+                        <div className="card-artist">{song.artist || 'Unknown'}</div>
+                        <div className="card-foot">
+                          {song.originalKey && <span className="card-pill card-pill-key">{song.originalKey}</span>}
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </>
           )}
 
           {tab === 'playlists' && (
@@ -228,6 +243,17 @@ export function CommunityDetailPage({ slug, signedIn, userId, onSignInClick }: P
             </ul>
           )}
         </>
+      )}
+
+      {community && (
+        <AddSongsToCommunityModal
+          open={addOpen}
+          communityId={community.id}
+          communityName={community.name}
+          existingIds={new Set(songs.map((s) => s.id))}
+          onClose={() => setAddOpen(false)}
+          onDone={(msg) => { onToast(msg); setAddOpen(false); load(); }}
+        />
       )}
     </div>
   );

@@ -305,6 +305,7 @@ export default function App() {
           signedIn={signedIn}
           userId={userId}
           onSignInClick={() => setSignInModal({ reason: 'Sign in to join.' })}
+          onToast={pushToast}
         />
       );
       break;
