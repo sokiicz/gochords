@@ -12,6 +12,13 @@ const FLAT_KEYS = new Set(['F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb', 'Cb', 'Dm', 'Gm', 
 
 const ROOT_RE = /^([A-G](?:##|bb|#|b)?)(.*)$/;
 
+// Conventional spelling per chromatic step (pop-music defaults: sharps for C#/F#, flats for Eb/Ab/Bb).
+const KEY_SPELLING: string[] = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+export const ALL_KEYS: string[] = [
+  ...KEY_SPELLING,
+  ...KEY_SPELLING.map((k) => k + 'm'),
+];
+
 export function parseRoot(chord: string): { root: string; suffix: string } | null {
   const m = chord.match(ROOT_RE);
   if (!m) return null;
@@ -50,38 +57,56 @@ export function transposeChord(chord: string, semitones: number, useFlats: boole
   return newRoot + suffix;
 }
 
-export function effectiveShift(transpose: number, capo: number): number {
-  return transpose - capo;
+/**
+ * Net semitone shift applied to the source chords for display.
+ *
+ *   shift = transpose + (defaultCapo - capo)
+ *
+ * Source chords are treated as the *fingering* the song author intended at `defaultCapo`.
+ * Moving the capo away from `defaultCapo` re-shapes the chords so the *sounding* pitch is preserved,
+ * unless the user also dials in a non-zero `transpose` on top.
+ */
+export function effectiveShift(transpose: number, capo: number, defaultCapo = 0): number {
+  return transpose + (defaultCapo - capo);
 }
 
 export function transposeTabRow(row: string, shift: number): string {
   if (shift === 0) return row;
   return row.replace(/(-*)(\d+)/g, (_match, dashes: string, num: string) => {
     let n = parseInt(num, 10) + shift;
-    while (n < 0) n += 12; // wrap an octave up rather than going negative
+    while (n < 0) n += 12;
     const next = String(n);
     const total = dashes.length + num.length;
-    if (next.length > total) return next; // overflow: accept slight misalignment
+    if (next.length > total) return next;
     return '-'.repeat(total - next.length) + next;
   });
 }
 
-export function transposeSong(song: Song, transpose: number, capo: number, originalKey?: string): Song {
-  const shift = effectiveShift(transpose, capo);
+export function transposeSong(
+  song: Song,
+  transpose: number,
+  capo: number,
+  originalKey?: string,
+  defaultCapo = 0,
+): Song {
+  const shift = effectiveShift(transpose, capo, defaultCapo);
   if (shift === 0) return song;
   const useFlats = originalKey ? preferFlats(shiftKey(originalKey, shift)) : shift < 0;
   return {
     sections: song.sections.map<Section>((s) => ({
       label: s.label,
+      annotation: s.annotation,
       lines: s.lines.map<Line>((l) => {
         if (l.kind === 'tab') {
           return { kind: 'tab', rows: l.rows.map((r) => transposeTabRow(r, shift)) };
         }
         return {
           kind: 'chord',
+          chordOnly: l.chordOnly,
           units: l.units.map<Unit>((u) => ({
             chord: u.chord ? transposeChord(u.chord, shift, useFlats) : null,
             lyric: u.lyric,
+            annot: u.annot,
           })),
         };
       }),
@@ -103,13 +128,16 @@ export function simplifySong(song: Song): Song {
   return {
     sections: song.sections.map<Section>((s) => ({
       label: s.label,
+      annotation: s.annotation,
       lines: s.lines.map<Line>((l) => {
         if (l.kind === 'tab') return l;
         return {
           kind: 'chord',
+          chordOnly: l.chordOnly,
           units: l.units.map<Unit>((u) => ({
             chord: u.chord ? simplifyChord(u.chord) : null,
             lyric: u.lyric,
+            annot: u.annot,
           })),
         };
       }),
@@ -123,6 +151,26 @@ function shiftKey(key: string, semitones: number): string {
   const baseSemi = NOTE_TO_SEMITONE[parsed.root];
   if (baseSemi === undefined) return key;
   const minor = /^m(?!aj)/.test(parsed.suffix);
-  const newRoot = noteFromSemitone(baseSemi + semitones, false);
-  return newRoot + (minor ? 'm' : '');
+  const idx = ((baseSemi + semitones) % 12 + 12) % 12;
+  return KEY_SPELLING[idx] + (minor ? 'm' : '');
+}
+
+/** Semitone delta to land `fromKey` on `toKey`. Result is normalized to (-6, +6]. */
+export function keyDelta(fromKey: string, toKey: string): number {
+  const a = parseRoot(fromKey);
+  const b = parseRoot(toKey);
+  if (!a || !b) return 0;
+  const fa = NOTE_TO_SEMITONE[a.root];
+  const fb = NOTE_TO_SEMITONE[b.root];
+  if (fa === undefined || fb === undefined) return 0;
+  let d = (fb - fa) % 12;
+  if (d > 6) d -= 12;
+  if (d <= -6) d += 12;
+  return d;
+}
+
+/** The displayed key after applying transpose+capo to the original key. */
+export function effectiveKey(originalKey: string | undefined, shift: number): string | null {
+  if (!originalKey) return null;
+  return shiftKey(originalKey, shift);
 }
