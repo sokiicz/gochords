@@ -1034,6 +1034,11 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
 }
 .sheet-line { display: flex; flex-wrap: wrap; align-items: flex-end; margin-bottom: 4px; min-height: 1em; }
 .sheet-line-blank { height: 0.9em; }
+.sheet-line-chord-only { gap: 14px; margin-bottom: 10px; align-items: center; }
+.sheet-line-chord-only .unit-chord { height: auto; display: inline-flex; align-items: baseline; gap: 4px; }
+.sheet-section-annotation { font-style: italic; font-weight: 400; color: var(--text-dim); margin-left: 6px; }
+.key-pill-original { color: var(--text-dim); font-weight: 400; margin-left: 2px; }
+.unit-annot { font-family: var(--font-mono); font-size: 0.78em; color: var(--text-dim); font-style: italic; }
 .unit { display: inline-flex; flex-direction: column; white-space: pre; }
 .unit-chord { height: 1.15em; line-height: 1.15; }
 .chord-btn {

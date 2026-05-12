@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { parse, uniqueChords } from '../lib/parser';
-import { simplifySong, transposeSong } from '../lib/transpose';
+import { effectiveKey, effectiveShift, simplifySong, transposeSong } from '../lib/transpose';
 import { adaptTabsForInstrument } from '../lib/tabConvert';
 import type { Instrument } from '../lib/chords';
 import { isEditable, type Song } from '../lib/songModel';
@@ -14,7 +14,7 @@ import { Icon } from '../components/Icon';
 import { SongActionsMenu } from '../components/SongActionsMenu';
 import { useKeyboard } from '../hooks/useKeyboard';
 
-const wrap12 = (n: number) => ((n % 12) + 12) % 12;
+const clampTranspose = (n: number) => Math.max(-11, Math.min(11, n));
 
 interface Props {
   song: Song;
@@ -75,9 +75,8 @@ export function SongPlayerPage(p: Props) {
       });
     } else {
       const s = loadSongState(song.id);
-      // Use saved values if present; otherwise fall back to song's default capo.
       setTranspose(s.transpose);
-      setCapo(s.capo || song.defaultCapo);
+      setCapo(s.capo ?? song.defaultCapo);
       setSimplify(s.simplify);
     }
   }, [song.id, signedIn]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -97,12 +96,14 @@ export function SongPlayerPage(p: Props) {
   }, [song.id, song.origin, signedIn, transpose, capo, simplify]);
 
   const parsed = useMemo(() => parse(song.source), [song]);
+  const shift = effectiveShift(transpose, capo, song.defaultCapo);
+  const displayKey = effectiveKey(song.originalKey, shift);
   const displaySong = useMemo(() => {
-    let s = transposeSong(parsed, transpose, capo, song.originalKey);
+    let s = transposeSong(parsed, transpose, capo, song.originalKey, song.defaultCapo);
     if (simplify) s = simplifySong(s);
     s = adaptTabsForInstrument(s, p.instrument);
     return s;
-  }, [parsed, transpose, capo, simplify, p.instrument, song.originalKey]);
+  }, [parsed, transpose, capo, simplify, p.instrument, song.originalKey, song.defaultCapo]);
   const usedChords = useMemo(() => uniqueChords(displaySong), [displaySong]);
 
   // Auto-scroll loop
@@ -140,12 +141,12 @@ export function SongPlayerPage(p: Props) {
   useKeyboard(
     {
       togglePlay: () => setScrollPlaying((v) => !v),
-      transposeUp: () => setTranspose((v) => wrap12(v + 1)),
-      transposeDown: () => setTranspose((v) => wrap12(v - 1)),
+      transposeUp: () => setTranspose((v) => clampTranspose(v + 1)),
+      transposeDown: () => setTranspose((v) => clampTranspose(v - 1)),
       resetAll,
       openImport: () => {},
       openEdit: () => { if (isEditable(song, userId)) p.onEdit(song); },
-      capoUp: () => setCapo((v) => Math.min(7, v + 1)),
+      capoUp: () => setCapo((v) => Math.min(11, v + 1)),
       capoDown: () => setCapo((v) => Math.max(0, v - 1)),
       toggleSimplify: () => setSimplify((v) => !v),
     },
@@ -159,6 +160,8 @@ export function SongPlayerPage(p: Props) {
       <ControlsBar
         transpose={transpose}
         capo={capo}
+        defaultCapo={song.defaultCapo}
+        originalKey={song.originalKey}
         fontSize={p.fontSize}
         darkMode={p.darkMode}
         scrollSpeed={p.scrollSpeed}
@@ -214,9 +217,16 @@ export function SongPlayerPage(p: Props) {
           </div>
           <div className="song-meta">
             {song.artist}
-            {song.originalKey && <span className="key-pill">Key: {song.originalKey}</span>}
+            {displayKey && (
+              <span className="key-pill" title={song.originalKey && displayKey !== song.originalKey ? `Original: ${song.originalKey}` : undefined}>
+                Key: {displayKey}
+                {song.originalKey && displayKey !== song.originalKey && (
+                  <span className="key-pill-original"> (from {song.originalKey})</span>
+                )}
+              </span>
+            )}
             {capo > 0 && <span className="key-pill">Capo {capo}</span>}
-            {transpose !== 0 && <span className="key-pill">+{transpose}</span>}
+            {transpose !== 0 && <span className="key-pill">{transpose > 0 ? `+${transpose}` : transpose}</span>}
             <span className="key-pill key-pill-inst">{p.instrument}</span>
             {simplify && <span className="key-pill">Simplified</span>}
             {song.visibility === 'private' && <span className="key-pill">Private</span>}

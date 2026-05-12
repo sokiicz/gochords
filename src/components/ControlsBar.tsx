@@ -1,9 +1,12 @@
 import { INSTRUMENTS, type Instrument } from '../lib/chords';
+import { ALL_KEYS, effectiveKey, effectiveShift, keyDelta, parseRoot } from '../lib/transpose';
 import { Icon } from './Icon';
 
 interface Props {
   transpose: number;
   capo: number;
+  defaultCapo: number;
+  originalKey?: string;
   fontSize: 0 | 1 | 2;
   darkMode: boolean;
   scrollSpeed: number;
@@ -23,10 +26,29 @@ interface Props {
   canReset: boolean;
 }
 
-const wrap12 = (n: number) => ((n % 12) + 12) % 12;
 const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
+const clampTranspose = (n: number) => clamp(n, -11, 11);
+
+function isMinor(key: string): boolean {
+  const p = parseRoot(key);
+  return !!p && /^m(?!aj)/.test(p.suffix);
+}
 
 export function ControlsBar(p: Props) {
+  const transposeLabel = p.transpose === 0 ? '0' : p.transpose > 0 ? `+${p.transpose}` : `${p.transpose}`;
+  const shift = effectiveShift(p.transpose, p.capo, p.defaultCapo);
+  const displayKey = effectiveKey(p.originalKey, shift);
+  const keyPickerEnabled = !!p.originalKey;
+  const sourceMinor = p.originalKey ? isMinor(p.originalKey) : false;
+  const keyOptions = keyPickerEnabled
+    ? ALL_KEYS.filter((k) => isMinor(k) === sourceMinor)
+    : [];
+
+  const capoTitle =
+    p.defaultCapo > 0
+      ? `Chords are written for capo ${p.defaultCapo}. Move the capo to re-shape; the sounding pitch stays the same.`
+      : 'Choose a capo position. Chords re-shape so the sounding pitch stays the same.';
+
   return (
     <div className="controls">
       <button className="icon-btn menu-btn" onClick={p.onMenu} aria-label="Menu">
@@ -37,6 +59,7 @@ export function ControlsBar(p: Props) {
         <span className="control-label">Instrument</span>
         <select
           className="select"
+          aria-label="Instrument"
           value={p.instrument}
           onChange={(e) => p.onInstrumentChange(e.target.value as Instrument)}
         >
@@ -48,23 +71,59 @@ export function ControlsBar(p: Props) {
 
       <div className="control-group">
         <span className="control-label">Transpose</span>
-        <button className="step-btn" onClick={() => p.onTransposeChange(wrap12(p.transpose - 1))} aria-label="Transpose down">
+        <button
+          className="step-btn"
+          onClick={() => p.onTransposeChange(clampTranspose(p.transpose - 1))}
+          disabled={p.transpose <= -11}
+          aria-label="Transpose down"
+        >
           <Icon name="minus" size={14} />
         </button>
-        <span className="control-value">{p.transpose === 0 ? '0' : `+${p.transpose}`}</span>
-        <button className="step-btn" onClick={() => p.onTransposeChange(wrap12(p.transpose + 1))} aria-label="Transpose up">
+        <span className="control-value" aria-live="polite">{transposeLabel}</span>
+        <button
+          className="step-btn"
+          onClick={() => p.onTransposeChange(clampTranspose(p.transpose + 1))}
+          disabled={p.transpose >= 11}
+          aria-label="Transpose up"
+        >
           <Icon name="plus" size={14} />
         </button>
+      </div>
+
+      <div className="control-group">
+        <span className="control-label">Key</span>
+        <select
+          className="select"
+          aria-label="Transpose to key"
+          value={displayKey ?? ''}
+          disabled={!keyPickerEnabled}
+          onChange={(e) => {
+            if (!p.originalKey) return;
+            const target = e.target.value;
+            if (!target) return;
+            const desired = keyDelta(p.originalKey, target);
+            // Solve effectiveShift(t, capo, defaultCapo) = desired  =>  t = desired + capo - defaultCapo
+            p.onTransposeChange(clampTranspose(desired + p.capo - p.defaultCapo));
+          }}
+          title={keyPickerEnabled ? 'Transpose so the song plays in this key' : 'Set Original Key on the song to enable'}
+        >
+          {!keyPickerEnabled && <option value="">—</option>}
+          {keyOptions.map((k) => (
+            <option key={k} value={k}>{k}</option>
+          ))}
+        </select>
       </div>
 
       <div className="control-group">
         <span className="control-label">Capo</span>
         <select
           className="select"
+          aria-label="Capo position"
           value={p.capo}
           onChange={(e) => p.onCapoChange(Number(e.target.value))}
+          title={capoTitle}
         >
-          {Array.from({ length: 8 }, (_, i) => (
+          {Array.from({ length: 12 }, (_, i) => (
             <option key={i} value={i}>{i === 0 ? 'None' : `Fret ${i}`}</option>
           ))}
         </select>
@@ -82,7 +141,7 @@ export function ControlsBar(p: Props) {
         className="icon-btn"
         onClick={p.onResetAll}
         disabled={!p.canReset}
-        title="Reset transpose, capo, and simplify (R)"
+        title="Reset to the song's notation (R)"
         aria-label="Reset"
       >
         <Icon name="reset" />
@@ -109,7 +168,7 @@ export function ControlsBar(p: Props) {
       </div>
 
       <div className="control-group control-scroll">
-        <button className="play-btn" onClick={p.onToggleScroll} aria-label="Toggle auto-scroll" title="Auto-scroll (Space)">
+        <button className="play-btn" onClick={p.onToggleScroll} aria-label={p.scrollPlaying ? 'Pause auto-scroll' : 'Start auto-scroll'} title="Auto-scroll (Space)">
           <Icon name={p.scrollPlaying ? 'pause' : 'play'} size={16} />
         </button>
         <span className="control-label">Speed</span>
