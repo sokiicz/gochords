@@ -1,18 +1,56 @@
-export type Unit = { chord: string | null; lyric: string };
-export type ChordLine = { kind: 'chord'; units: Unit[] };
+export type Unit = { chord: string | null; lyric: string; annot?: string };
+export type ChordLine = { kind: 'chord'; units: Unit[]; chordOnly?: boolean };
 export type TabLine = { kind: 'tab'; rows: string[] };
 export type Line = ChordLine | TabLine;
-export type Section = { label: string | null; lines: Line[] };
+export type Section = { label: string | null; annotation?: string | null; lines: Line[] };
 export type Song = { sections: Section[] };
 
-const CHORD_RE =
-  /^[A-G](##|bb|#|b)?(maj|min|mi|ma|m|M|sus|add|dim|aug|°|ø|\+|-)?(\d{1,2})?(\((b|#)\d+\))?(sus[24]?)?(add\d+)?(\/[A-G](##|bb|#|b)?)?$/;
+// --- chord grammar ---
+// Tension-or-bass slash:  /9 /11 /13  → tension extension (rare, e.g. C6/9)
+//                          /A /F#     → bass note
+const ROOT = '[A-G](?:##|bb|#|b)?';
+const QUALITY = '(?:maj|min|mi|ma|m(?!aj)|M(?!aj)|dim|aug|°|ø|\\+)?';
+const NUMBER = '(?:\\d{1,2})?';
+const ALT_TENSION = '(?:[-b#+]\\d{1,2}|\\([-b#+]?\\d{1,2}\\))';
+const SUS = '(?:sus[24]?)?';
+const ADD = '(?:add[#b]?\\d{1,2})?';
+const SLASH = '(?:\\/(?:\\d{1,2}|' + ROOT + '))?';
+const CHORD_RE = new RegExp(
+  '^' + ROOT + QUALITY + NUMBER + '(?:' + ALT_TENSION + ')*' + SUS + ADD + SLASH + '$'
+);
 
-const SECTION_LABEL_RE = /^\s*\[([^\]]+)\]\s*$/;
+const NO_CHORD_RE = /^N\.?C\.?$/i;
+const REPEAT_RE = /^\(?x\d+\)?$/i;
+const BARE_SECTION_RE =
+  /^\s*(intro|outro|verse|chorus|pre[\s-]?chorus|bridge|interlude|solo|coda|tag|refrain|hook|breakdown|instrumental|riff)(\s*\d+)?\s*:?\s*(\([^)]*\))?\s*$/i;
+const SECTION_LABEL_RE = /^\s*\[([^\]]+)\]\s*(.*)$/;
 const INLINE_CHORD_RE = /\[([^\]]+)\]|\{([^}]+)\}|\(([^)]+)\)/g;
 
 export function isChordToken(s: string): boolean {
-  return CHORD_RE.test(s.trim());
+  const t = s.trim();
+  if (t === '') return false;
+  if (NO_CHORD_RE.test(t)) return true;
+  return CHORD_RE.test(t);
+}
+
+export function isNoChordToken(s: string): boolean {
+  return NO_CHORD_RE.test(s.trim());
+}
+
+function isRepeatMarker(s: string): boolean {
+  return REPEAT_RE.test(s.trim());
+}
+
+function isBarline(t: string): boolean {
+  return t === '|' || t === ':|' || t === '|:' || t === '||' || t === ':||' || t === '||:';
+}
+
+function isFiller(t: string): boolean {
+  return t === '' || isBarline(t) || isRepeatMarker(t);
+}
+
+function tokenizeChordRow(line: string): string[] {
+  return line.split(/[\s|]+/).filter((t) => t.length > 0);
 }
 
 export function isTabRow(line: string): boolean {
@@ -28,8 +66,13 @@ export function isTabRow(line: string): boolean {
 export function parse(input: string): Song {
   const rawLines = input.replace(/\r\n/g, '\n').split('\n');
   const sections: Section[] = [];
-  let current: Section = { label: null, lines: [] };
+  let current: Section = { label: null, annotation: null, lines: [] };
   sections.push(current);
+
+  const openSection = (label: string, annotation: string | null) => {
+    current = { label, annotation, lines: [] };
+    sections.push(current);
+  };
 
   let i = 0;
   while (i < rawLines.length) {
@@ -37,8 +80,25 @@ export function parse(input: string): Song {
 
     const labelMatch = line.match(SECTION_LABEL_RE);
     if (labelMatch && !isChordToken(labelMatch[1].trim())) {
-      current = { label: labelMatch[1].trim(), lines: [] };
-      sections.push(current);
+      const label = labelMatch[1].trim();
+      const trailing = labelMatch[2].trim();
+      // If trailing content parses as chord-only, treat as the section's first chord line.
+      // Otherwise it's a free-form annotation like "(with whistling)".
+      if (trailing !== '' && isChordOnlyLine(trailing)) {
+        openSection(label, null);
+        current.lines.push({ kind: 'chord', units: chordOnlyUnits(trailing), chordOnly: true });
+      } else {
+        openSection(label, trailing === '' ? null : trailing);
+      }
+      i++;
+      continue;
+    }
+
+    const bareMatch = line.match(BARE_SECTION_RE);
+    if (bareMatch && !isChordToken(line.trim())) {
+      const parts = [bareMatch[1], bareMatch[2]].filter(Boolean).join(' ').trim().replace(/\s+/g, ' ');
+      const annotation = (bareMatch[3] || '').trim();
+      openSection(parts, annotation === '' ? null : annotation);
       i++;
       continue;
     }
@@ -78,7 +138,7 @@ export function parse(input: string): Song {
     }
 
     if (isChordOnlyLine(line)) {
-      current.lines.push({ kind: 'chord', units: alignChordsToLyrics(line, '') });
+      current.lines.push({ kind: 'chord', units: chordOnlyUnits(line), chordOnly: true });
       i++;
       continue;
     }
@@ -88,14 +148,12 @@ export function parse(input: string): Song {
   }
 
   if (sections[0].label === null && sections[0].lines.length === 0) sections.shift();
-  if (sections.length === 0) sections.push({ label: null, lines: [] });
+  if (sections.length === 0) sections.push({ label: null, annotation: null, lines: [] });
   return { sections };
 }
 
 function hasInlineChords(line: string): boolean {
-  INLINE_CHORD_RE.lastIndex = 0;
-  let m: RegExpExecArray | null;
-  while ((m = INLINE_CHORD_RE.exec(line)) !== null) {
+  for (const m of line.matchAll(INLINE_CHORD_RE)) {
     const tok = (m[1] ?? m[2] ?? m[3] ?? '').trim();
     if (isChordToken(tok)) return true;
   }
@@ -104,7 +162,6 @@ function hasInlineChords(line: string): boolean {
 
 function parseInlineLine(line: string): Unit[] {
   const units: Unit[] = [];
-  INLINE_CHORD_RE.lastIndex = 0;
   let lastIdx = 0;
   let pendingChord: string | null = null;
   let pendingLyric = '';
@@ -117,8 +174,7 @@ function parseInlineLine(line: string): Unit[] {
     pendingLyric = '';
   };
 
-  let m: RegExpExecArray | null;
-  while ((m = INLINE_CHORD_RE.exec(line)) !== null) {
+  for (const m of line.matchAll(INLINE_CHORD_RE)) {
     const tok = (m[1] ?? m[2] ?? m[3] ?? '').trim();
     if (!isChordToken(tok)) continue;
     const before = line.slice(lastIdx, m.index);
@@ -139,24 +195,48 @@ function parseInlineLine(line: string): Unit[] {
 }
 
 function isChordOnlyLine(line: string): boolean {
-  const tokens = line.trim().split(/\s+/).filter(Boolean);
+  const tokens = tokenizeChordRow(line);
   if (tokens.length === 0) return false;
-  return tokens.every((t) => isChordToken(t));
+  let hasChord = false;
+  for (const t of tokens) {
+    if (isFiller(t)) continue;
+    if (!isChordToken(t)) return false;
+    hasChord = true;
+  }
+  return hasChord;
+}
+
+/** Units for a chord-only line. Repeat markers (x2) ride along on the previous unit's `annot`. */
+function chordOnlyUnits(line: string): Unit[] {
+  const tokens = tokenizeChordRow(line);
+  const units: Unit[] = [];
+  for (const t of tokens) {
+    if (isBarline(t)) continue;
+    if (isRepeatMarker(t)) {
+      if (units.length > 0) units[units.length - 1].annot = t;
+      else units.push({ chord: null, lyric: '', annot: t });
+      continue;
+    }
+    units.push({ chord: t, lyric: '' });
+  }
+  if (units.length === 0) return [{ chord: null, lyric: line }];
+  return units;
 }
 
 function alignChordsToLyrics(chordLine: string, lyricLine: string): Unit[] {
   const positions: { col: number; chord: string }[] = [];
   let i = 0;
   while (i < chordLine.length) {
-    if (chordLine[i] !== ' ' && chordLine[i] !== '\t') {
-      let j = i;
-      while (j < chordLine.length && chordLine[j] !== ' ' && chordLine[j] !== '\t') j++;
-      const tok = chordLine.slice(i, j);
-      if (isChordToken(tok)) positions.push({ col: i, chord: tok });
-      i = j;
-    } else {
+    const ch = chordLine[i];
+    if (ch === ' ' || ch === '\t' || ch === '|') {
       i++;
+      continue;
     }
+    let j = i;
+    while (j < chordLine.length && chordLine[j] !== ' ' && chordLine[j] !== '\t' && chordLine[j] !== '|') j++;
+    const tok = chordLine.slice(i, j);
+    if (isChordToken(tok) && !isRepeatMarker(tok)) positions.push({ col: i, chord: tok });
+    i = j;
   }
 
   if (positions.length === 0) return [{ chord: null, lyric: lyricLine }];
@@ -174,7 +254,6 @@ function alignChordsToLyrics(chordLine: string, lyricLine: string): Unit[] {
   return units;
 }
 
-/** Walk the song and collect unique chord names in first-appearance order. */
 export function uniqueChords(song: Song): string[] {
   const seen = new Set<string>();
   const order: string[] = [];
@@ -182,7 +261,7 @@ export function uniqueChords(song: Song): string[] {
     for (const line of section.lines) {
       if (line.kind !== 'chord') continue;
       for (const u of line.units) {
-        if (u.chord && !seen.has(u.chord)) {
+        if (u.chord && !seen.has(u.chord) && !isNoChordToken(u.chord)) {
           seen.add(u.chord);
           order.push(u.chord);
         }
