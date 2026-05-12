@@ -85,6 +85,37 @@ check('effectiveKey: undefined', effectiveKey(undefined, 4), null);
 // --- ALL_KEYS sanity ---
 check('ALL_KEYS count', ALL_KEYS.length, 24);
 check('ALL_KEYS includes C and Am', ALL_KEYS.includes('C') && ALL_KEYS.includes('Am'), true);
+check('ALL_KEYS uses Eb (not D#)', ALL_KEYS.includes('Eb') && !ALL_KEYS.includes('D#'), true);
+check('ALL_KEYS minor mirrors major spelling', ALL_KEYS.includes('Ebm') && !ALL_KEYS.includes('D#m'), true);
+
+// --- key picker math: picking displayKey re-derives transpose deterministically ---
+{
+  // Song in C, no capo. User picks D. transpose should become +2.
+  const originalKey = 'C';
+  const capo = 0;
+  const defaultCapo = 0;
+  const target = 'D';
+  const desired = keyDelta(originalKey, target);
+  const t = desired + capo - defaultCapo;
+  check('picker: C -> D yields +2', t, 2);
+  check('picker: displayKey after applying = D', effectiveKey(originalKey, effectiveShift(t, capo, defaultCapo)), 'D');
+}
+{
+  // Song in Em, written for capo 2. User picks Gm.
+  const originalKey = 'Em';
+  const capo = 2;
+  const defaultCapo = 2;
+  const target = 'Gm';
+  const desired = keyDelta(originalKey, target);
+  const t = desired + capo - defaultCapo;
+  // Em -> Gm is +3, capo unchanged.
+  check('picker: Em@cap2 -> Gm yields +3', t, 3);
+  check(
+    'picker: displayKey after applying = Gm',
+    effectiveKey(originalKey, effectiveShift(t, capo, defaultCapo)),
+    'Gm',
+  );
+}
 
 // --- chord-only / annot preserved across transpose ---
 {

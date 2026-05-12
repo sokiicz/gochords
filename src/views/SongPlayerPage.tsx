@@ -75,9 +75,8 @@ export function SongPlayerPage(p: Props) {
       });
     } else {
       const s = loadSongState(song.id);
-      // Use saved values if present; otherwise fall back to song's default capo.
       setTranspose(s.transpose);
-      setCapo(s.capo || song.defaultCapo);
+      setCapo(s.capo ?? song.defaultCapo);
       setSimplify(s.simplify);
     }
   }, [song.id, signedIn]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -147,7 +146,7 @@ export function SongPlayerPage(p: Props) {
       resetAll,
       openImport: () => {},
       openEdit: () => { if (isEditable(song, userId)) p.onEdit(song); },
-      capoUp: () => setCapo((v) => Math.min(7, v + 1)),
+      capoUp: () => setCapo((v) => Math.min(11, v + 1)),
       capoDown: () => setCapo((v) => Math.max(0, v - 1)),
       toggleSimplify: () => setSimplify((v) => !v),
     },
@@ -163,14 +162,13 @@ export function SongPlayerPage(p: Props) {
         capo={capo}
         defaultCapo={song.defaultCapo}
         originalKey={song.originalKey}
-        displayKey={displayKey}
         fontSize={p.fontSize}
         darkMode={p.darkMode}
         scrollSpeed={p.scrollSpeed}
         scrollPlaying={scrollPlaying}
         instrument={p.instrument}
         simplify={simplify}
-        onTransposeChange={(v) => setTranspose(clampTranspose(v))}
+        onTransposeChange={setTranspose}
         onCapoChange={setCapo}
         onFontSizeChange={p.onFontSizeChange}
         onToggleDark={p.onToggleDark}
@@ -219,7 +217,14 @@ export function SongPlayerPage(p: Props) {
           </div>
           <div className="song-meta">
             {song.artist}
-            {displayKey && <span className="key-pill">Key: {displayKey}</span>}
+            {displayKey && (
+              <span className="key-pill" title={song.originalKey && displayKey !== song.originalKey ? `Original: ${song.originalKey}` : undefined}>
+                Key: {displayKey}
+                {song.originalKey && displayKey !== song.originalKey && (
+                  <span className="key-pill-original"> (from {song.originalKey})</span>
+                )}
+              </span>
+            )}
             {capo > 0 && <span className="key-pill">Capo {capo}</span>}
             {transpose !== 0 && <span className="key-pill">{transpose > 0 ? `+${transpose}` : transpose}</span>}
             <span className="key-pill key-pill-inst">{p.instrument}</span>
