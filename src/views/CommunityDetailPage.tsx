@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   fetchCommunity, listCommunityMembers, listCommunitySongs,
-  joinPublicCommunity, leaveCommunity, removeSongFromCommunity,
+  joinPublicCommunity, leaveCommunity, removeSongFromCommunity, removeSongsFromCommunity,
   VISIBILITY_DESC, VISIBILITY_LABEL,
   type Community, type CommunityMember,
 } from '../lib/communities';
@@ -17,7 +17,7 @@ interface Props {
   signedIn: boolean;
   userId: string | null;
   onSignInClick: () => void;
-  onToast: (msg: string) => void;
+  onToast: (msg: string, opts?: { action?: { label: string; run: () => void }; durationMs?: number }) => void;
 }
 
 type Tab = 'songs' | 'playlists' | 'members';
@@ -252,7 +252,33 @@ export function CommunityDetailPage({ slug, signedIn, userId, onSignInClick, onT
           communityName={community.name}
           existingIds={new Set(songs.map((s) => s.id))}
           onClose={() => setAddOpen(false)}
-          onDone={(msg) => { onToast(msg); setAddOpen(false); load(); }}
+          onDone={(result) => {
+            setAddOpen(false);
+            load();
+            const parts = [`${result.added} added`];
+            if (result.promoted > 0) parts.push(`${result.promoted} promoted to community-visible`);
+            if (result.skipped > 0) parts.push(`${result.skipped} already in`);
+            const message = parts.join(' · ');
+            const c = community;
+            const ids = result.addedIds.slice();
+            onToast(message, {
+              durationMs: 8000,
+              action: result.added > 0 && ids.length > 0
+                ? {
+                    label: 'Undo',
+                    run: async () => {
+                      try {
+                        const removed = await removeSongsFromCommunity(c.id, ids);
+                        onToast(`Undid · removed ${removed}`);
+                        load();
+                      } catch (e: any) {
+                        onToast(`Undo failed: ${e.message}`);
+                      }
+                    },
+                  }
+                : undefined,
+            });
+          }}
         />
       )}
     </div>

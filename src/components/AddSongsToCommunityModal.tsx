@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { fetchMyLibrary, type CloudSong } from '../lib/cloudSongs';
+import { fetchCatalog, fetchMyLibrary } from '../lib/cloudSongs';
 import { fetchMyLikedSongs } from '../lib/likes';
 import { listMyPlaylists, listPlaylistSongs, type Playlist } from '../lib/playlists';
-import { addSongsToCommunity } from '../lib/communities';
+import { addSongsToCommunity, type AddSongsResult } from '../lib/communities';
 import { fromCloud, type Song } from '../lib/songModel';
 import { Icon } from './Icon';
 
@@ -12,85 +12,137 @@ interface Props {
   communityId: string;
   communityName: string;
   existingIds: Set<string>;
-  onDone: (msg: string) => void;
+  /** Called after a successful batch add. */
+  onDone: (result: AddSongsResult) => void;
   onClose: () => void;
 }
 
-type Tab = 'mine' | 'saved' | 'playlists';
+type Tab = 'mine' | 'saved' | 'catalog' | 'playlists';
+
+const TAB_ORDER: Tab[] = ['mine', 'saved', 'catalog', 'playlists'];
+const TAB_LABEL: Record<Tab, string> = {
+  mine: 'My library',
+  saved: 'Saved',
+  catalog: 'Catalog',
+  playlists: 'Playlists',
+};
 
 export function AddSongsToCommunityModal({ open, communityId, communityName, existingIds, onDone, onClose }: Props) {
   const [tab, setTab] = useState<Tab>('mine');
   const [mine, setMine] = useState<Song[] | null>(null);
   const [saved, setSaved] = useState<Song[] | null>(null);
+  const [catalog, setCatalog] = useState<Song[] | null>(null);
   const [playlists, setPlaylists] = useState<Playlist[] | null>(null);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  // Selection — keep full song objects so the chip strip can show titles.
+  const [selectedMap, setSelectedMap] = useState<Map<string, Song>>(new Map());
+  const [pendingPlaylistId, setPendingPlaylistId] = useState<string | null>(null);
+
   const [q, setQ] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [pendingPlaylist, setPendingPlaylist] = useState<string | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
-  // Reset when reopened
+  // Lazy load each list on open; cache between tab switches.
   useEffect(() => {
     if (!open) return;
-    setSelected(new Set());
+    setSelectedMap(new Map());
     setQ('');
     setErr(null);
     setTab('mine');
-    // Lazy load lists once per open
-    fetchMyLibrary().then((s) => setMine(s.map((cs) => fromCloud(cs as CloudSong)))).catch(() => setMine([]));
+    setMine(null); setSaved(null); setCatalog(null); setPlaylists(null);
+    fetchMyLibrary().then((r) => setMine(r.filter((s) => s.ownerId !== null).map(fromCloud))).catch(() => setMine([]));
     fetchMyLikedSongs().then(setSaved).catch(() => setSaved([]));
+    fetchCatalog({ sort: 'popular', limit: 200 }).then((page) => setCatalog(page.songs.map(fromCloud))).catch(() => setCatalog([]));
     listMyPlaylists().then(setPlaylists).catch(() => setPlaylists([]));
   }, [open]);
 
-  // Esc to close
+  // Scroll-lock the body while the modal is up.
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [open]);
 
-  const sourceList: Song[] = tab === 'mine' ? (mine ?? []) : (saved ?? []);
-  const filtered = useMemo(() => {
+  // Reset search and scroll on tab change.
+  useEffect(() => { setQ(''); listRef.current?.scrollTo({ top: 0 }); }, [tab]);
+
+  const sourceForTab = (t: Tab): (Song[] | null) =>
+    t === 'mine' ? mine : t === 'saved' ? saved : t === 'catalog' ? catalog : null;
+
+  const filtered = useMemo<Song[]>(() => {
+    const src = sourceForTab(tab);
+    if (!src) return [];
     const needle = q.trim().toLowerCase();
-    const base = sourceList.filter((s) => s.origin === 'cloud');
+    const base = src.filter((s) => s.origin === 'cloud');
     if (!needle) return base;
     return base.filter((s) => s.title.toLowerCase().includes(needle) || s.artist.toLowerCase().includes(needle));
-  }, [sourceList, q]);
+  }, [tab, mine, saved, catalog, q]);
 
-  const toggle = (id: string) => {
-    setSelected((cur) => {
-      const next = new Set(cur);
-      if (next.has(id)) next.delete(id); else next.add(id);
+  const filteredPlaylists = useMemo(() => {
+    if (!playlists) return [];
+    const needle = q.trim().toLowerCase();
+    if (!needle) return playlists;
+    return playlists.filter((p) => p.name.toLowerCase().includes(needle));
+  }, [playlists, q]);
+
+  const isSelected = (id: string) => selectedMap.has(id);
+  const toggle = (s: Song) => {
+    setSelectedMap((cur) => {
+      const next = new Map(cur);
+      if (next.has(s.id)) next.delete(s.id); else next.set(s.id, s);
+      return next;
+    });
+  };
+  const deselect = (id: string) => {
+    setSelectedMap((cur) => { const n = new Map(cur); n.delete(id); return n; });
+  };
+
+  // ⌘A: select all visible (in song tabs)
+  const selectAllVisible = () => {
+    if (tab === 'playlists') return;
+    setSelectedMap((cur) => {
+      const next = new Map(cur);
+      for (const s of filtered) {
+        if (!existingIds.has(s.id)) next.set(s.id, s);
+      }
       return next;
     });
   };
 
-  const togglePlaylist = async (pl: Playlist) => {
-    if (pendingPlaylist) return;
-    setPendingPlaylist(pl.id);
+  const addEntirePlaylist = async (pl: Playlist) => {
+    if (pendingPlaylistId) return;
+    setPendingPlaylistId(pl.id);
     try {
       const songs = await listPlaylistSongs(pl.id);
-      setSelected((cur) => {
-        const next = new Set(cur);
-        for (const s of songs) next.add(s.id);
+      if (songs.length === 0) {
+        setErr(`Playlist "${pl.name}" is empty.`);
+        return;
+      }
+      setSelectedMap((cur) => {
+        const next = new Map(cur);
+        for (const cs of songs) {
+          const s = fromCloud(cs);
+          if (!existingIds.has(s.id)) next.set(s.id, s);
+        }
         return next;
       });
+      setErr(null);
     } catch (e: any) {
       setErr(e.message);
     } finally {
-      setPendingPlaylist(null);
+      setPendingPlaylistId(null);
     }
   };
 
   const submit = async () => {
-    const ids = [...selected];
-    if (ids.length === 0) return;
+    if (selectedMap.size === 0) return;
     setBusy(true);
     setErr(null);
     try {
-      const { added } = await addSongsToCommunity(communityId, ids);
-      onDone(`Added ${added} song${added === 1 ? '' : 's'} to ${communityName}`);
+      const result = await addSongsToCommunity(communityId, [...selectedMap.keys()]);
+      onDone(result);
       onClose();
     } catch (e: any) {
       setErr(e.message);
@@ -99,27 +151,46 @@ export function AddSongsToCommunityModal({ open, communityId, communityName, exi
     }
   };
 
+  // Keyboard: Esc close, ⌘A select-all-visible, ⌘↵ submit
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { onClose(); return; }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); submit(); return; }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'a' &&
+          !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
+        e.preventDefault();
+        selectAllVisible();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, filtered, tab, selectedMap]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (!open) return null;
 
   const renderSongRow = (s: Song) => {
     const inCommunity = existingIds.has(s.id);
-    const isChecked = selected.has(s.id);
+    const checked = isSelected(s.id);
     return (
-      <li key={s.id} className={`picker-row ${inCommunity ? 'picker-row-disabled' : ''} ${isChecked ? 'picker-row-on' : ''}`}>
+      <li key={s.id} className={`picker-row ${inCommunity ? 'picker-row-disabled' : ''} ${checked ? 'picker-row-on' : ''}`}>
         <label>
+          <span className={`picker-check ${checked ? 'picker-check-on' : ''}`} aria-hidden="true">
+            {checked && <Icon name="check" size={14} />}
+          </span>
           <input
             type="checkbox"
-            checked={isChecked}
+            checked={checked}
             disabled={inCommunity}
-            onChange={() => toggle(s.id)}
+            onChange={() => toggle(s)}
           />
           <div className="picker-row-info">
             <div className="picker-row-title">{s.title}</div>
             <div className="picker-row-artist">
-              {s.artist || 'Unknown'}
-              {s.originalKey && <span className="card-pill card-pill-key" style={{ marginLeft: 6 }}>{s.originalKey}</span>}
-              {s.visibility === 'private' && <span className="card-pill card-pill-private" style={{ marginLeft: 6 }}>Private</span>}
-              {inCommunity && <span className="card-pill" style={{ marginLeft: 6 }}>Already in</span>}
+              <span>{s.artist || 'Unknown'}</span>
+              {s.originalKey && <span className="card-pill card-pill-key">{s.originalKey}</span>}
+              {s.visibility === 'private' && <span className="card-pill" title="Private — will be promoted to community-visible when shared">Will share</span>}
+              {inCommunity && <span className="card-pill">Already in</span>}
             </div>
           </div>
         </label>
@@ -127,93 +198,114 @@ export function AddSongsToCommunityModal({ open, communityId, communityName, exi
     );
   };
 
+  const currentList = sourceForTab(tab);
+
   return createPortal(
     <div className="modal-backdrop" onClick={onClose}>
       <div className="picker-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="picker-header">
-          <h2>Add songs to {communityName}</h2>
+          <h2>Add songs to <em>{communityName}</em></h2>
           <button className="icon-btn" onClick={onClose} aria-label="Close">
             <Icon name="close" />
           </button>
         </div>
 
         <nav className="tab-row picker-tabs">
-          <button className={`tab ${tab === 'mine' ? 'tab-active' : ''}`} onClick={() => setTab('mine')}>
-            My library {mine && <span className="tab-count">({mine.length})</span>}
-          </button>
-          <button className={`tab ${tab === 'saved' ? 'tab-active' : ''}`} onClick={() => setTab('saved')}>
-            Saved {saved && <span className="tab-count">({saved.length})</span>}
-          </button>
-          <button className={`tab ${tab === 'playlists' ? 'tab-active' : ''}`} onClick={() => setTab('playlists')}>
-            My playlists {playlists && <span className="tab-count">({playlists.length})</span>}
-          </button>
+          {TAB_ORDER.map((t) => {
+            const list = t === 'playlists' ? playlists : sourceForTab(t);
+            return (
+              <button key={t} className={`tab ${tab === t ? 'tab-active' : ''}`} onClick={() => setTab(t)}>
+                {TAB_LABEL[t]} {list && <span className="tab-count">({list.length})</span>}
+              </button>
+            );
+          })}
         </nav>
 
-        {tab !== 'playlists' && (
-          <div className="picker-search">
-            <input
-              type="search"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search…"
-              autoFocus
-            />
-          </div>
-        )}
+        <div className="picker-search">
+          <Icon name="star" size={14} />
+          <input
+            type="search"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder={tab === 'playlists' ? 'Find a playlist…' : 'Search title or artist…'}
+            autoFocus
+          />
+          {tab !== 'playlists' && filtered.length > 0 && (
+            <button className="text-btn picker-select-all" onClick={selectAllVisible} title="⌘A">
+              Select all
+            </button>
+          )}
+        </div>
 
-        <div className="picker-list">
+        <div className="picker-list" ref={listRef}>
           {tab === 'playlists' ? (
             playlists === null ? (
               <div className="list-empty">Loading…</div>
-            ) : playlists.length === 0 ? (
-              <div className="list-empty">No playlists yet. Create one from the Playlists page.</div>
+            ) : filteredPlaylists.length === 0 ? (
+              <div className="list-empty">{q ? 'No playlists match.' : 'No playlists yet. Create one on the Playlists page.'}</div>
             ) : (
               <ul className="picker-list-ul">
-                {playlists.map((pl) => (
+                {filteredPlaylists.map((pl) => (
                   <li key={pl.id} className="picker-row picker-row-playlist">
                     <div className="picker-row-info">
                       <div className="picker-row-title">{pl.name}</div>
-                      <div className="picker-row-artist">{pl.description || (pl.isPublic ? 'Public' : 'Private')} · playlist</div>
+                      <div className="picker-row-artist">
+                        {pl.description || (pl.isPublic ? 'Public' : 'Private')} · playlist
+                      </div>
                     </div>
                     <button
                       className="ghost-btn"
-                      onClick={() => togglePlaylist(pl)}
-                      disabled={pendingPlaylist === pl.id || busy}
+                      onClick={() => addEntirePlaylist(pl)}
+                      disabled={pendingPlaylistId === pl.id || busy}
                     >
-                      {pendingPlaylist === pl.id ? 'Adding…' : 'Add all songs'}
+                      {pendingPlaylistId === pl.id ? 'Adding…' : 'Add all songs'}
                     </button>
                   </li>
                 ))}
               </ul>
             )
+          ) : currentList === null ? (
+            <div className="list-empty">Loading…</div>
+          ) : filtered.length === 0 ? (
+            <div className="list-empty">
+              {q ? 'No matches.' : tab === 'mine'
+                ? 'Your library is empty — import or fork a song first.'
+                : tab === 'saved'
+                  ? 'You haven\'t saved any songs yet.'
+                  : 'Catalog is empty.'}
+            </div>
           ) : (
-            (tab === 'mine' ? mine : saved) === null ? (
-              <div className="list-empty">Loading…</div>
-            ) : filtered.length === 0 ? (
-              <div className="list-empty">
-                {q ? 'No matches.' : tab === 'mine'
-                  ? 'Your library is empty — import or fork a song first.'
-                  : 'You haven\'t saved any songs yet.'}
-              </div>
-            ) : (
-              <ul className="picker-list-ul">{filtered.map(renderSongRow)}</ul>
-            )
+            <ul className="picker-list-ul">{filtered.map(renderSongRow)}</ul>
           )}
         </div>
 
-        {err && <div className="signin-error" style={{ padding: '8px 16px 0' }}>{err}</div>}
+        {selectedMap.size > 0 && (
+          <div className="picker-selection">
+            {[...selectedMap.values()].slice(0, 50).map((s) => (
+              <button key={s.id} className="picker-chip" onClick={() => deselect(s.id)} title="Remove from selection">
+                <span>{s.title}</span>
+                <Icon name="close" size={10} />
+              </button>
+            ))}
+            {selectedMap.size > 50 && (
+              <span className="picker-chip picker-chip-more">+{selectedMap.size - 50} more</span>
+            )}
+          </div>
+        )}
+
+        {err && <div className="picker-err">{err}</div>}
 
         <div className="picker-footer">
           <span className="picker-count">
-            {selected.size === 0 ? 'No songs selected' : `${selected.size} song${selected.size === 1 ? '' : 's'} selected`}
+            {selectedMap.size === 0 ? 'No songs selected' : `${selectedMap.size} selected`}
           </span>
-          {selected.size > 0 && (
-            <button className="text-btn" onClick={() => setSelected(new Set())} disabled={busy}>Clear</button>
+          {selectedMap.size > 0 && (
+            <button className="text-btn" onClick={() => setSelectedMap(new Map())} disabled={busy}>Clear</button>
           )}
-          <span style={{ flex: 1 }} />
+          <span className="picker-shortcut">⌘↵</span>
           <button className="ghost-btn" onClick={onClose}>Cancel</button>
-          <button className="primary-btn" onClick={submit} disabled={selected.size === 0 || busy}>
-            {busy ? 'Adding…' : `Add ${selected.size || ''} to community`}
+          <button className="primary-btn" onClick={submit} disabled={selectedMap.size === 0 || busy}>
+            {busy ? 'Adding…' : selectedMap.size > 0 ? `Add ${selectedMap.size}` : 'Add'}
           </button>
         </div>
       </div>

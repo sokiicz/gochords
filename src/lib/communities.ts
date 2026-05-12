@@ -163,32 +163,46 @@ export async function listCommunitySongs(communityId: string): Promise<CloudSong
 }
 
 export async function addSongToCommunity(communityId: string, songId: string): Promise<void> {
-  return addSongsToCommunity(communityId, [songId]).then(() => undefined);
+  await addSongsToCommunity(communityId, [songId]);
 }
 
 export interface AddSongsResult {
   added: number;
+  promoted: number;
   skipped: number;
+  addedIds: string[];
 }
 
+/** Atomic batch add. Auto-promotes any owned 'private' songs to 'community'
+ *  visibility so other members can actually read them. */
 export async function addSongsToCommunity(communityId: string, songIds: string[]): Promise<AddSongsResult> {
   const unique = Array.from(new Set(songIds));
-  if (unique.length === 0) return { added: 0, skipped: 0 };
+  if (unique.length === 0) return { added: 0, promoted: 0, skipped: 0, addedIds: [] };
   const sb = requireSupabase();
-  const { data: u } = await sb.auth.getUser();
-  if (!u.user) throw new Error('Sign in.');
-  const rows = unique.map((song_id) => ({
-    community_id: communityId,
-    song_id,
-    added_by: u.user!.id,
-  }));
-  const { data, error } = await sb
-    .from('community_songs')
-    .upsert(rows, { onConflict: 'community_id,song_id', ignoreDuplicates: false })
-    .select('song_id');
+  const { data, error } = await sb.rpc('add_songs_to_community', {
+    c_id: communityId,
+    song_ids: unique,
+  });
   if (error) throw error;
-  const added = (data ?? []).length;
-  return { added, skipped: unique.length - added };
+  // RPC returns a single-row table
+  const row = Array.isArray(data) ? data[0] : data;
+  return {
+    added: row?.added ?? 0,
+    promoted: row?.promoted ?? 0,
+    skipped: row?.skipped ?? 0,
+    addedIds: row?.added_ids ?? [],
+  };
+}
+
+export async function removeSongsFromCommunity(communityId: string, songIds: string[]): Promise<number> {
+  if (songIds.length === 0) return 0;
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc('remove_songs_from_community', {
+    c_id: communityId,
+    song_ids: songIds,
+  });
+  if (error) throw error;
+  return (data as number) ?? 0;
 }
 
 export async function removeSongFromCommunity(communityId: string, songId: string): Promise<void> {

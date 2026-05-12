@@ -62,8 +62,8 @@ export default function App() {
     fetchMyLikedSongIds().then(setLikedIds).catch(() => {});
   }, [signedIn, libraryRefresh]);
 
-  const pushToast = useCallback((message: string) => {
-    setToasts((ts) => [...ts, { id: Date.now() + Math.random(), message }]);
+  const pushToast = useCallback((message: string, opts?: { action?: { label: string; run: () => void }; durationMs?: number }) => {
+    setToasts((ts) => [...ts, { id: Date.now() + Math.random(), message, ...opts }]);
   }, []);
   const dismissToast = useCallback((id: number) => setToasts((ts) => ts.filter((t) => t.id !== id)), []);
   const persistLocal = useCallback((next: StoredSong[]) => { setLocalSongs(next); saveSongs(next); }, []);
