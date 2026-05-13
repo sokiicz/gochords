@@ -13,6 +13,7 @@ export type Route =
   | { name: 'song'; id: string }
   | { name: 'artist'; slug: string }
   | { name: 'contributions' }
+  | { name: 'following' }
   | { name: 'user'; handle: string }
   | { name: 'profile' };
 
@@ -25,6 +26,7 @@ function parseHash(raw: string): Route {
   if (h === 'communities') return { name: 'communities' };
   if (h === 'profile') return { name: 'profile' };
   if (h === 'contributions') return { name: 'contributions' };
+  if (h === 'following') return { name: 'following' };
   if (h.startsWith('artist/')) return { name: 'artist', slug: decodeURIComponent(h.slice(7)) };
   if (h.startsWith('u/')) return { name: 'user', handle: decodeURIComponent(h.slice(2)) };
   if (h === 'import') return { name: 'import', from: params.get('from') };
@@ -57,6 +59,7 @@ export function navigate(route: Route): void {
     case 'community':   hash = `#/community/${encodeURIComponent(route.slug)}`; break;
     case 'profile':     hash = '#/profile'; break;
     case 'contributions': hash = '#/contributions'; break;
+    case 'following': hash = '#/following'; break;
     case 'artist':      hash = `#/artist/${encodeURIComponent(route.slug)}`; break;
     case 'user':        hash = `#/u/${encodeURIComponent(route.handle)}`; break;
     case 'join':        hash = `#/join/${encodeURIComponent(route.code)}`; break;
@@ -87,6 +90,7 @@ export function routeHref(route: Route): string {
     case 'community':   return `#/community/${encodeURIComponent(route.slug)}`;
     case 'profile':     return '#/profile';
     case 'contributions': return '#/contributions';
+    case 'following': return '#/following';
     case 'artist':      return `#/artist/${encodeURIComponent(route.slug)}`;
     case 'user':        return `#/u/${encodeURIComponent(route.handle)}`;
     case 'join':        return `#/join/${encodeURIComponent(route.code)}`;

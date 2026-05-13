@@ -62,6 +62,7 @@ export function SongPlayerPage(p: Props) {
   const [simplify, setSimplify] = useState(false);
   const [scrollPlaying, setScrollPlaying] = useState(false);
   const [diagramChord, setDiagramChord] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
@@ -133,6 +134,16 @@ export function SongPlayerPage(p: Props) {
   }, [parsed, transpose, capo, simplify, p.instrument, song.originalKey, song.defaultCapo]);
   const usedChords = useMemo(() => uniqueChords(displaySong), [displaySong]);
 
+  // Collapse the full controls when the user has scrolled past the top.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onScroll = () => setCollapsed(el.scrollTop > 80);
+    onScroll();
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [song.id]);
+
   // Auto-scroll loop
   useEffect(() => {
     if (!scrollPlaying) {
@@ -182,7 +193,7 @@ export function SongPlayerPage(p: Props) {
   const canReset = transpose !== 0 || capo !== song.defaultCapo || simplify;
 
   return (
-    <div className="player">
+    <div className={'player' + (collapsed ? ' player-collapsed' : '')}>
       <ControlsBar
         transpose={transpose}
         capo={capo}
@@ -210,6 +221,29 @@ export function SongPlayerPage(p: Props) {
         canReset={canReset}
         onMenu={() => { /* hamburger handled by AppShell */ }}
       />
+
+      {collapsed && (
+        <div className="mini-controls" role="toolbar" aria-label="Auto-scroll">
+          <button
+            className="play-btn"
+            onClick={() => setScrollPlaying((v) => !v)}
+            aria-label={scrollPlaying ? 'Pause auto-scroll' : 'Start auto-scroll'}
+          >
+            <Icon name={scrollPlaying ? 'pause' : 'play'} size={14} />
+          </button>
+          <input
+            type="range"
+            className="speed-slider"
+            min={1}
+            max={50}
+            step={1}
+            value={p.scrollSpeed}
+            onChange={(e) => p.onScrollSpeedChange(Math.max(1, Math.min(50, Number(e.target.value))))}
+            aria-label="Auto-scroll speed"
+            title={`Speed ${p.scrollSpeed}`}
+          />
+        </div>
+      )}
 
       <div className="sheet-scroll" ref={scrollRef}>
         <div className="sheet-page">
@@ -273,16 +307,12 @@ export function SongPlayerPage(p: Props) {
             {song.tempo && <span className="key-pill">{song.tempo} BPM</span>}
           </div>
           <div className="song-credit">
-            {ownerProfile && (ownerProfile.displayName || ownerProfile.handle) && (
+            {ownerProfile && (
               <span>
                 Added by{' '}
-                {ownerProfile.handle ? (
-                  <a href={routeHref({ name: 'user', handle: ownerProfile.handle })}>
-                    <strong>{ownerProfile.displayName ?? `@${ownerProfile.handle}`}</strong>
-                  </a>
-                ) : (
-                  <strong>{ownerProfile.displayName}</strong>
-                )}
+                <a href={routeHref({ name: 'user', handle: ownerProfile.handle ?? ownerProfile.id })}>
+                  <strong>{ownerProfile.displayName ?? (ownerProfile.handle ? `@${ownerProfile.handle}` : 'user')}</strong>
+                </a>
               </span>
             )}
             {song.updatedAt > 0 && (
