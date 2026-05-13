@@ -32,6 +32,7 @@ import { ArtistPage } from './views/ArtistPage';
 import { ContributionsPage } from './views/ContributionsPage';
 import { UserProfilePage } from './views/UserProfilePage';
 import { FollowingPage } from './views/FollowingPage';
+import { UpdatesPage } from './views/UpdatesPage';
 
 export default function App() {
   const auth = useAuth();
@@ -344,6 +345,14 @@ export default function App() {
           userId={userId}
           onRequireSignIn={requireSignInForActions}
           onToast={pushToast}
+        />
+      );
+      break;
+    case 'updates':
+      main = (
+        <UpdatesPage
+          signedIn={signedIn}
+          onSignInClick={() => setSignInModal({ reason: 'Sign in to see updates.' })}
         />
       );
       break;

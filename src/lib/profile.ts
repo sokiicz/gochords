@@ -97,6 +97,95 @@ export async function unfollowUser(userId: string): Promise<void> {
   if (error) throw error;
 }
 
+// ---------- Updates feed ----------
+
+export interface UpdateEvent {
+  kind: 'like_on_my_song' | 'new_follower' | 'song_from_followed';
+  at: number;
+  actor?: { id: string; displayName: string | null; handle: string | null } | null;
+  song?: { id: string; title: string; artist: string } | null;
+}
+
+/** Aggregate a simple "updates" feed for the signed-in user. */
+export async function fetchUpdates(limit = 40): Promise<UpdateEvent[]> {
+  const sb = requireSupabase();
+  const { data: u } = await sb.auth.getUser();
+  if (!u.user) return [];
+  const me = u.user.id;
+
+  const [likesRes, followersRes, followingRes] = await Promise.all([
+    // recent likes on songs I own
+    sb.from('song_likes')
+      .select('liked_at, user_id, song:songs!inner(id, title, artist, owner_id), profile:profiles!song_likes_user_id_fkey(display_name, handle)')
+      .eq('song.owner_id', me)
+      .neq('user_id', me)
+      .order('liked_at', { ascending: false })
+      .limit(limit),
+    // recent new followers
+    sb.from('user_follows')
+      .select('followed_at, follower:profiles!user_follows_follower_id_fkey(id, display_name, handle)')
+      .eq('followee_id', me)
+      .order('followed_at', { ascending: false })
+      .limit(limit),
+    // recent songs from people I follow
+    sb.from('user_follows')
+      .select('followee_id')
+      .eq('follower_id', me),
+  ]);
+
+  const events: UpdateEvent[] = [];
+
+  if (likesRes.data) {
+    for (const r of likesRes.data as any[]) {
+      events.push({
+        kind: 'like_on_my_song',
+        at: new Date(r.liked_at).getTime(),
+        actor: r.profile ? { id: r.user_id, displayName: r.profile.display_name, handle: r.profile.handle } : null,
+        song: r.song ? { id: r.song.id, title: r.song.title, artist: r.song.artist } : null,
+      });
+    }
+  }
+
+  if (followersRes.data) {
+    for (const r of followersRes.data as any[]) {
+      events.push({
+        kind: 'new_follower',
+        at: new Date(r.followed_at).getTime(),
+        actor: r.follower ? { id: r.follower.id, displayName: r.follower.display_name, handle: r.follower.handle } : null,
+      });
+    }
+  }
+
+  if (followingRes.data && followingRes.data.length > 0) {
+    const ids = (followingRes.data as any[]).map((r) => r.followee_id);
+    const [songsRes, profilesRes] = await Promise.all([
+      sb.from('songs')
+        .select('id, title, artist, owner_id, created_at')
+        .in('owner_id', ids)
+        .eq('visibility', 'public')
+        .order('created_at', { ascending: false })
+        .limit(limit),
+      sb.from('profiles').select('id, display_name, handle').in('id', ids),
+    ]);
+    const profileById = new Map<string, { displayName: string | null; handle: string | null }>();
+    for (const p of (profilesRes.data as any[] | null) ?? []) {
+      profileById.set(p.id, { displayName: p.display_name, handle: p.handle });
+    }
+    for (const s of (songsRes.data as any[] | null) ?? []) {
+      const p = profileById.get(s.owner_id);
+      events.push({
+        kind: 'song_from_followed',
+        at: new Date(s.created_at).getTime(),
+        actor: p ? { id: s.owner_id, displayName: p.displayName, handle: p.handle } : null,
+        song: { id: s.id, title: s.title, artist: s.artist },
+      });
+    }
+  }
+
+  events.sort((a, b) => b.at - a.at);
+  return events.slice(0, limit);
+}
+
 /** Profiles I follow (for the Following feed). */
 export async function fetchFollowing(): Promise<Profile[]> {
   const sb = requireSupabase();

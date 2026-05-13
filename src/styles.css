@@ -1851,6 +1851,8 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
 }
 .member-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
 .member-row:last-child { border-bottom: 0; }
+.member-link { display: flex; align-items: center; gap: 12px; flex: 1; text-decoration: none; color: inherit; }
+.member-link:hover .member-name { color: var(--accent); }
 .member-avatar {
   width: 36px; height: 36px;
   border-radius: 50%;
@@ -2200,6 +2202,15 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
 .following-song-title { font-weight: 500; }
 .following-song-artist { color: var(--text-dim); font-size: var(--t-xs); margin-left: auto; }
 .following-empty { font-size: var(--t-sm); color: var(--text-dim); padding: 4px 8px; }
+
+/* Updates page */
+.updates-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.updates-card { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--r); background: var(--bg-1); }
+.updates-card svg { color: var(--accent); flex-shrink: 0; }
+.updates-text { flex: 1; font-size: var(--t-sm); }
+.updates-text a { color: inherit; }
+.updates-text a:hover { color: var(--accent); }
+.updates-time { color: var(--text-faint); font-size: var(--t-xs); font-variant-numeric: tabular-nums; }
 
 /* Resonant Labs link in the nav footer */
 .nav-affiliate {
