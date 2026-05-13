@@ -14,3 +14,12 @@ __pycache__/
 *.pyc
 tsconfig.tsbuildinfo
 devserver.log
+
+# Local-only roadmap; read by future sessions via memory pointer.
+PLAN.md
+
+# Local-only operations runbook — contains ownership / recovery details.
+OPERATIONS.md
+
+# Claude Code local settings.
+.claude/
