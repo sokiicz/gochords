@@ -144,7 +144,10 @@ export function SongPlayerPage(p: Props) {
     return () => el.removeEventListener('scroll', onScroll);
   }, [song.id]);
 
-  // Auto-scroll loop
+  // Auto-scroll loop. Hands control back to the user the moment they touch /
+  // wheel / drag the sheet, so manual scrolling always wins — auto-scroll just
+  // resumes from the new position after a short idle window.
+  const userScrollUntil = useRef(0);
   useEffect(() => {
     if (!scrollPlaying) {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
@@ -152,17 +155,38 @@ export function SongPlayerPage(p: Props) {
       carryRef.current = 0;
       return;
     }
+    const el = scrollRef.current;
+    if (!el) return;
+
+    // Treat any of these as "user is taking the wheel right now."
+    const RESUME_DELAY_MS = 700;
+    const markInteracting = () => {
+      userScrollUntil.current = performance.now() + RESUME_DELAY_MS;
+      carryRef.current = 0;
+    };
+    el.addEventListener('wheel', markInteracting, { passive: true });
+    el.addEventListener('touchstart', markInteracting, { passive: true });
+    el.addEventListener('touchmove', markInteracting, { passive: true });
+    el.addEventListener('pointerdown', markInteracting);
+
     let last = performance.now();
+    let lastAutoScrollTop = el.scrollTop;
     const tick = (now: number) => {
       const dt = (now - last) / 1000;
       last = now;
-      const el = scrollRef.current;
-      if (el) {
+      // User moved the scroll behind our back (keyboard, scrollbar drag) — accept it.
+      if (Math.abs(el.scrollTop - lastAutoScrollTop) > 1) {
+        markInteracting();
+        lastAutoScrollTop = el.scrollTop;
+      }
+      const interacting = now < userScrollUntil.current;
+      if (!interacting) {
         const pxPerSec = p.scrollSpeed * 2;
         carryRef.current += pxPerSec * dt;
         const whole = Math.floor(carryRef.current);
         if (whole > 0) {
           el.scrollTop += whole;
+          lastAutoScrollTop = el.scrollTop;
           carryRef.current -= whole;
           if (el.scrollTop + el.clientHeight >= el.scrollHeight - 1) { setScrollPlaying(false); return; }
         }
@@ -170,7 +194,13 @@ export function SongPlayerPage(p: Props) {
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
-    return () => { if (rafRef.current !== null) cancelAnimationFrame(rafRef.current); };
+    return () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      el.removeEventListener('wheel', markInteracting);
+      el.removeEventListener('touchstart', markInteracting);
+      el.removeEventListener('touchmove', markInteracting);
+      el.removeEventListener('pointerdown', markInteracting);
+    };
   }, [scrollPlaying, p.scrollSpeed]);
 
   const resetAll = useCallback(() => { setTranspose(0); setCapo(song.defaultCapo); setSimplify(false); }, [song.defaultCapo]);
