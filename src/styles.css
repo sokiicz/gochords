@@ -114,6 +114,10 @@
 
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
+/* Hard stop on horizontal page-scroll. If any element ever overflows the
+   viewport width, the scroll happens inside that element (e.g. .chords-strip,
+   .tab-row) instead of dragging the whole page sideways on mobile. */
+html, body { overflow-x: clip; max-width: 100vw; }
 body {
   background: var(--bg);
   color: var(--text);
@@ -1013,8 +1017,8 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
 }
 .chord-tile:hover { background: var(--bg-2); }
 .chord-tile-name { font-family: var(--font-mono); font-weight: 700; color: var(--accent); font-size: var(--t-sm); }
-.chord-tile-canvas { width: 60px; height: 72px; }
-.chord-tile-missing { width: 60px; height: 72px; display: flex; align-items: center; justify-content: center; color: var(--text-faint); font-size: var(--t-lg); }
+.chord-tile-canvas { width: 72px; height: 96px; }
+.chord-tile-missing { width: 72px; height: 96px; display: flex; align-items: center; justify-content: center; color: var(--text-faint); font-size: var(--t-lg); }
 
 /* Sheet body */
 .sheet { font-family: var(--font-mono); font-size: var(--sheet-size-1); }
@@ -1947,7 +1951,8 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
 @media (max-width: 720px) {
   .page-header { flex-direction: column; align-items: stretch; gap: 12px; margin-bottom: 20px; }
   .page-header-actions { margin-left: 0; flex-wrap: wrap; gap: 8px; }
-  .page-header-actions .primary-btn { flex: 1; min-width: 140px; }
+  /* Let buttons shrink — min-width was forcing horizontal overflow on 360 px screens. */
+  .page-header-actions .primary-btn { flex: 1 1 120px; min-width: 0; }
 
   .form-page-header { gap: 8px; }
   .form-page-header h1 { width: 100%; order: -1; font-size: var(--t-xl); }
@@ -2038,11 +2043,11 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
 
 /* Adjustable chord-diagram sizes */
 .chords-strip-sm .chord-tile-canvas,
-.chords-strip-sm .chord-tile-missing { width: 54px; height: 66px; }
+.chords-strip-sm .chord-tile-missing { width: 64px; height: 84px; }
 .chords-strip-sm .chord-tile-name { font-size: var(--t-sm); }
 .chords-strip-sm .chord-tile { padding: 8px 8px 6px; }
 .chords-strip-lg .chord-tile-canvas,
-.chords-strip-lg .chord-tile-missing { width: 100px; height: 120px; }
+.chords-strip-lg .chord-tile-missing { width: 110px; height: 140px; }
 .chords-strip-lg .chord-tile-name { font-size: var(--t-lg); }
 .chords-strip-lg .chord-tile { padding: 14px 14px 10px; }
 
@@ -2280,18 +2285,28 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
   .song-header h2,
   .song-hero-text h2 { word-break: normal; overflow-wrap: break-word; hyphens: auto; }
 
-  /* ---------- Controls bar: ONE compact row, horizontal scroll for overflow ---------- */
+  /* ---------- Controls bar: wrap to two rows instead of horizontal scroll ----------
+     The hamburger sits at left:16 + width:42 = right edge 58px, so we leave
+     a 64px left pad so it never overlaps the first control. */
   .controls {
-    padding: 6px 10px 6px 50px;
-    gap: 8px;
-    flex-wrap: nowrap;
-    overflow-x: auto;
+    padding: 6px 10px 6px 64px;
+    gap: 6px 8px;
+    flex-wrap: wrap;
+    overflow-x: hidden;
     overflow-y: hidden;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
   }
-  .controls::-webkit-scrollbar { display: none; }
   .controls > * { flex: 0 0 auto; }
+  /* Hide secondary controls on mobile so the bar stays on two rows max.
+     Primary: Transpose, Capo, Simplify, Diagrams, Play+slider, Pin.
+     Secondary (hidden here, available on desktop): Instrument, Key,
+     Font size, Theme, Reset. */
+  .controls .control-instrument,
+  .controls .control-key,
+  .controls .control-font,
+  .controls .control-theme,
+  .controls .control-reset { display: none; }
+  /* Labels for the kept groups read as clutter on small screens — drop them. */
+  .controls .control-label { display: none; }
   .control-group { gap: 4px; }
   .select { height: 28px; padding: 0 8px; font-size: var(--t-xs); }
   .pill-btn { padding: 5px 9px; font-size: var(--t-xs); }
@@ -2305,18 +2320,18 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
   .chords-strip-sticky { padding: 4px 8px; }
   .chords-strip-sticky .chords-strip-inner { flex-wrap: nowrap; min-width: max-content; }
 
-  /* Default chord tiles shrink further on mobile — diagram is the content,
-     not the box around it. */
+  /* Mobile tiles obey the readability floors from Sprint 1.D:
+     64×84 SM, 72×96 default, 88×116 LG. Below the SM floor the fretboard
+     collapses to a few pixels and stops being a diagram. */
   .chords-strip { padding: 6px; }
-  .chords-strip-inner { gap: 2px; }
-  .chord-tile { padding: 2px 2px; gap: 1px; }
-  .chord-tile-canvas, .chord-tile-missing { width: 44px; height: 54px; }
-  .chord-tile-name { font-size: 11px; }
-  /* User-chosen sizes still override the mobile default. */
+  .chords-strip-inner { gap: 4px; }
+  .chord-tile { padding: 4px 4px 2px; gap: 2px; }
+  .chord-tile-canvas, .chord-tile-missing { width: 72px; height: 96px; }
+  .chord-tile-name { font-size: 12px; min-height: 16px; }
   .chords-strip-sm .chord-tile-canvas,
-  .chords-strip-sm .chord-tile-missing { width: 38px; height: 48px; }
+  .chords-strip-sm .chord-tile-missing { width: 64px; height: 84px; }
   .chords-strip-lg .chord-tile-canvas,
-  .chords-strip-lg .chord-tile-missing { width: 60px; height: 72px; }
+  .chords-strip-lg .chord-tile-missing { width: 88px; height: 116px; }
 
   /* Compact song hero */
   .song-header { margin-bottom: 14px; }

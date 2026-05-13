@@ -138,7 +138,7 @@ export function SongPlayerPage(p: Props) {
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const onScroll = () => setCollapsed(el.scrollTop > 80);
+    const onScroll = () => setCollapsed(el.scrollTop > 40);
     onScroll();
     el.addEventListener('scroll', onScroll, { passive: true });
     return () => el.removeEventListener('scroll', onScroll);

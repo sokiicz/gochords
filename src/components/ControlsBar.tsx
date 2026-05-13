@@ -65,7 +65,7 @@ export function ControlsBar(p: Props) {
         <Icon name="menu" />
       </button>
 
-      <div className="control-group">
+      <div className="control-group control-instrument">
         <span className="control-label">Instrument</span>
         <select
           className="select"
@@ -100,7 +100,7 @@ export function ControlsBar(p: Props) {
         </button>
       </div>
 
-      <div className="control-group">
+      <div className="control-group control-key">
         <span className="control-label">Key</span>
         <select
           className="select"
@@ -148,7 +148,7 @@ export function ControlsBar(p: Props) {
       </button>
 
       <button
-        className="icon-btn"
+        className="icon-btn control-reset"
         onClick={p.onResetAll}
         disabled={!p.canReset}
         title="Reset to the song's notation (R)"
@@ -166,7 +166,7 @@ export function ControlsBar(p: Props) {
         Diagrams {p.diagramSize === 'sm' ? 'S' : p.diagramSize === 'md' ? 'M' : 'L'}
       </button>
 
-      <div className="control-group">
+      <div className="control-group control-font">
         <span className="control-label">A</span>
         <button
           className="step-btn"
@@ -213,7 +213,7 @@ export function ControlsBar(p: Props) {
         <Icon name="pin" size={14} />
       </button>
 
-      <button className="icon-btn theme-btn" onClick={p.onToggleDark} aria-label="Toggle dark mode" title="Toggle theme">
+      <button className="icon-btn theme-btn control-theme" onClick={p.onToggleDark} aria-label="Toggle dark mode" title="Toggle theme">
         <Icon name={p.darkMode ? 'sun' : 'moon'} />
       </button>
     </div>

@@ -275,14 +275,23 @@ export function drawFretDiagram(
   const { ctx, w: cssW, h: cssH } = setup;
 
   const stringCount = shape.frets.length;
-  const padX = Math.max(18, cssW * 0.12);
-  const padTop = Math.max(28, cssH * 0.16);
-  const padBottom = 10;
   const fretCount = 4;
+
+  // Purely proportional spacing — the canvas CSS size controls how big the
+  // diagram is, so don't apply hard-px floors that dominate small canvases.
+  // 10% horizontal pad keeps the X/O markers inside the box; 22% top pad
+  // leaves room for those markers; 7% bottom pad is breathing room.
+  const padX = cssW * 0.10;
+  const padTop = cssH * 0.22;
+  const padBottom = cssH * 0.07;
+
   const gridW = cssW - padX * 2;
   const gridH = cssH - padTop - padBottom;
   const stringSpacing = gridW / Math.max(1, stringCount - 1);
   const fretSpacing = gridH / fretCount;
+  // Dots / barres / markers / fonts scale against the actual fretboard cell,
+  // not the canvas, so the diagram stays legible at every tile size.
+  const cell = Math.min(stringSpacing, fretSpacing);
 
   const playedFrets = shape.frets.filter((f) => f > 0);
   const minPlayed = playedFrets.length ? Math.min(...playedFrets) : 1;
@@ -293,13 +302,13 @@ export function drawFretDiagram(
   ctx.fillRect(0, 0, cssW, cssH);
 
   ctx.strokeStyle = theme.line;
-  ctx.lineWidth = baseFret === 1 ? 4 : 2;
+  ctx.lineWidth = baseFret === 1 ? Math.max(2, cell * 0.14) : Math.max(1, cell * 0.06);
   ctx.beginPath();
   ctx.moveTo(padX, padTop);
   ctx.lineTo(padX + gridW, padTop);
   ctx.stroke();
 
-  ctx.lineWidth = 1.3;
+  ctx.lineWidth = Math.max(1, cell * 0.05);
   for (let i = 1; i <= fretCount; i++) {
     const y = padTop + fretSpacing * i;
     ctx.beginPath();
@@ -318,28 +327,28 @@ export function drawFretDiagram(
 
   if (baseFret > 1) {
     ctx.fillStyle = theme.text;
-    ctx.font = `${Math.max(10, cssH * 0.05)}px ui-sans-serif, system-ui, sans-serif`;
+    ctx.font = `${Math.max(9, cell * 0.55)}px ui-sans-serif, system-ui, sans-serif`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`${baseFret}fr`, padX + gridW + 4, padTop + fretSpacing / 2);
+    ctx.fillText(`${baseFret}fr`, padX + gridW + cell * 0.15, padTop + fretSpacing / 2);
   }
 
-  // X / O markers
-  ctx.font = `${Math.max(11, cssH * 0.058)}px ui-sans-serif, system-ui, sans-serif`;
+  // X / O markers — sized against the cell, positioned in the top pad.
+  ctx.font = `${Math.max(10, cell * 0.62)}px ui-sans-serif, system-ui, sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   for (let s = 0; s < stringCount; s++) {
     const x = padX + stringSpacing * s;
-    const y = padTop - Math.max(10, cssH * 0.06);
+    const y = padTop - cell * 0.42;
     const f = shape.frets[s];
     if (f === -1) {
       ctx.fillStyle = theme.muted;
       ctx.fillText('×', x, y);
     } else if (f === 0) {
       ctx.strokeStyle = theme.text;
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = Math.max(1, cell * 0.06);
       ctx.beginPath();
-      ctx.arc(x, y, Math.max(4, cssH * 0.022), 0, Math.PI * 2);
+      ctx.arc(x, y, cell * 0.22, 0, Math.PI * 2);
       ctx.stroke();
     }
   }
@@ -351,7 +360,7 @@ export function drawFretDiagram(
       const y = padTop + fretSpacing * (localFret - 0.5);
       const x1 = padX + stringSpacing * from;
       const x2 = padX + stringSpacing * to;
-      const r = Math.min(fretSpacing * 0.36, stringSpacing * 0.45);
+      const r = cell * 0.36;
       ctx.fillStyle = theme.accent;
       roundRect(ctx, x1 - r * 0.7, y - r, x2 - x1 + r * 1.4, r * 2, r);
       ctx.fill();
@@ -365,7 +374,7 @@ export function drawFretDiagram(
     if (localFret < 1 || localFret > fretCount) continue;
     const x = padX + stringSpacing * s;
     const y = padTop + fretSpacing * (localFret - 0.5);
-    const r = Math.min(fretSpacing * 0.34, stringSpacing * 0.42);
+    const r = cell * 0.36;
     const inBarre = shape.barre && shape.barre.fret === f && s >= shape.barre.from && s <= shape.barre.to;
     if (!inBarre) {
       ctx.fillStyle = theme.accent;
