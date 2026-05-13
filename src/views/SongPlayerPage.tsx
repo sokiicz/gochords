@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { parse, uniqueChords } from '../lib/parser';
 import { effectiveKey, effectiveShift, simplifySong, transposeSong } from '../lib/transpose';
+import { parseArtists, slugify } from '../lib/search';
+import { fetchProfile, type Profile } from '../lib/profile';
+import { routeHref } from '../lib/router';
 import { adaptTabsForInstrument } from '../lib/tabConvert';
 import type { Instrument } from '../lib/chords';
 import { isEditable, type Song } from '../lib/songModel';
+import type { DiagramSize } from '../lib/storage';
 import { fetchSongState, upsertSongState } from '../lib/cloudSongs';
 import { loadSongState, saveSongState } from '../lib/storage';
 import { ControlsBar } from '../components/ControlsBar';
@@ -16,6 +20,16 @@ import { useKeyboard } from '../hooks/useKeyboard';
 
 const clampTranspose = (n: number) => Math.max(-11, Math.min(11, n));
 
+function relativeTime(ts: number): string {
+  const diff = Date.now() - ts;
+  const m = 60_000, h = 3_600_000, d = 86_400_000;
+  if (diff < m) return 'just now';
+  if (diff < h) return `${Math.floor(diff / m)} min ago`;
+  if (diff < d) return `${Math.floor(diff / h)} h ago`;
+  if (diff < 30 * d) return `${Math.floor(diff / d)} d ago`;
+  return new Date(ts).toLocaleDateString();
+}
+
 interface Props {
   song: Song;
   signedIn: boolean;
@@ -24,10 +38,12 @@ interface Props {
   fontSize: 0 | 1 | 2;
   scrollSpeed: number;
   instrument: Instrument;
+  diagramSize: DiagramSize;
   onToggleDark: () => void;
   onFontSizeChange: (v: 0 | 1 | 2) => void;
   onScrollSpeedChange: (v: number) => void;
   onInstrumentChange: (v: Instrument) => void;
+  onDiagramSizeChange: (v: DiagramSize) => void;
   onEdit: (song: Song) => void;
   onFork: (song: Song) => void;
   liked: boolean;
@@ -98,6 +114,15 @@ export function SongPlayerPage(p: Props) {
   const parsed = useMemo(() => parse(song.source), [song]);
   const shift = effectiveShift(transpose, capo, song.defaultCapo);
   const displayKey = effectiveKey(song.originalKey, shift);
+  const artists = useMemo(() => parseArtists(song.artist), [song.artist]);
+
+  const [ownerProfile, setOwnerProfile] = useState<Profile | null>(null);
+  useEffect(() => {
+    setOwnerProfile(null);
+    if (song.origin === 'cloud' && song.ownerId) {
+      fetchProfile(song.ownerId).then(setOwnerProfile).catch(() => {});
+    }
+  }, [song.id, song.origin, song.ownerId]);
   const displaySong = useMemo(() => {
     let s = transposeSong(parsed, transpose, capo, song.originalKey, song.defaultCapo);
     if (simplify) s = simplifySong(s);
@@ -167,10 +192,12 @@ export function SongPlayerPage(p: Props) {
         scrollSpeed={p.scrollSpeed}
         scrollPlaying={scrollPlaying}
         instrument={p.instrument}
+        diagramSize={p.diagramSize}
         simplify={simplify}
         onTransposeChange={setTranspose}
         onCapoChange={setCapo}
         onFontSizeChange={p.onFontSizeChange}
+        onDiagramSizeChange={p.onDiagramSizeChange}
         onToggleDark={p.onToggleDark}
         onScrollSpeedChange={p.onScrollSpeedChange}
         onToggleScroll={() => setScrollPlaying((v) => !v)}
@@ -192,7 +219,21 @@ export function SongPlayerPage(p: Props) {
           <div className="song-hero">
             <div className="song-hero-art">{(song.title || '?').trim()[0]?.toUpperCase() ?? '?'}</div>
             <div className="song-hero-text">
-              <div className="song-hero-eyebrow">{song.artist || 'Unknown artist'}</div>
+              <div className="song-hero-eyebrow">
+                {artists.primary ? (
+                  <>
+                    <a href={routeHref({ name: 'artist', slug: slugify(artists.primary) })}>{artists.primary}</a>
+                    {artists.featured.map((f, i) => (
+                      <span key={f}>
+                        {i === 0 ? ' feat. ' : ', '}
+                        <a href={routeHref({ name: 'artist', slug: slugify(f) })}>{f}</a>
+                      </span>
+                    ))}
+                  </>
+                ) : (
+                  'Unknown artist'
+                )}
+              </div>
               <h2>{song.title}</h2>
               <div className="song-hero-actions">
                 <SongActionsMenu
@@ -216,7 +257,6 @@ export function SongPlayerPage(p: Props) {
             </div>
           </div>
           <div className="song-meta">
-            {song.artist}
             {displayKey && (
               <span className="key-pill" title={song.originalKey && displayKey !== song.originalKey ? `Original: ${song.originalKey}` : undefined}>
                 Key: {displayKey}
@@ -234,12 +274,23 @@ export function SongPlayerPage(p: Props) {
             {song.seeded && <span className="key-pill key-pill-readonly">Demo</span>}
             {song.tempo && <span className="key-pill">{song.tempo} BPM</span>}
           </div>
+          <div className="song-credit">
+            {ownerProfile && (ownerProfile.displayName || ownerProfile.handle) && (
+              <span>Added by <strong>{ownerProfile.displayName ?? `@${ownerProfile.handle}`}</strong></span>
+            )}
+            {song.updatedAt > 0 && (
+              <span title={new Date(song.updatedAt).toLocaleString()}>
+                Updated {relativeTime(song.updatedAt)}
+              </span>
+            )}
+          </div>
         </header>
 
         <UsedChordsStrip
           chords={usedChords}
           instrument={p.instrument}
           darkMode={p.darkMode}
+          size={p.diagramSize}
           onChordClick={(c) => setDiagramChord(c)}
         />
 

@@ -4,6 +4,7 @@ import { fetchMyLikedSongIds, likeSong, unlikeSong } from '../lib/likes';
 import { fromCloud, type Song } from '../lib/songModel';
 import { cloudEnabled } from '../lib/supabase';
 import { navigate } from '../lib/router';
+import { matches } from '../lib/search';
 import { Icon } from '../components/Icon';
 import { SongCard } from '../components/SongCard';
 import { SkeletonGrid } from '../components/Skeleton';
@@ -31,13 +32,14 @@ export function BrowsePage({ signedIn, onImport, onRequireSignIn, onToast }: Pro
   const [activeTags, setActiveTags] = useState<string[]>([]);
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
 
-  // Main list — fetch on filter change AND subscribe to realtime inserts so
-  // newly-published songs appear without a manual refresh.
+  // Fetch the full catalog (sorted) and filter client-side so diacritics, ampersands,
+  // and "and/a" alternatives all match. Cap at 500 — when the catalog grows past that,
+  // search will need to move to server-side via Postgres' unaccent extension.
   useEffect(() => {
     if (!cloudEnabled) { setLoading(false); return; }
     let cancelled = false;
     setLoading(true);
-    fetchCatalog({ sort, search: q, limit: 200 })
+    fetchCatalog({ sort, limit: 500 })
       .then((page) => { if (!cancelled) { setSongs(page.songs); setLoading(false); } })
       .catch((e) => { if (!cancelled) { setErr(e.message); setLoading(false); } });
 
@@ -49,7 +51,7 @@ export function BrowsePage({ signedIn, onImport, onRequireSignIn, onToast }: Pro
       });
     });
     return () => { cancelled = true; unsub(); };
-  }, [sort, q]);
+  }, [sort]);
 
   // Trending (only on default view)
   useEffect(() => {
@@ -71,9 +73,11 @@ export function BrowsePage({ signedIn, onImport, onRequireSignIn, onToast }: Pro
   }, [songs]);
 
   const filtered = useMemo(() => {
-    if (activeTags.length === 0) return songs;
-    return songs.filter((s) => activeTags.every((t) => (s.tags || []).includes(t)));
-  }, [songs, activeTags]);
+    let out = songs;
+    if (q.trim()) out = out.filter((s) => matches(q, s.title, s.artist));
+    if (activeTags.length > 0) out = out.filter((s) => activeTags.every((t) => (s.tags || []).includes(t)));
+    return out;
+  }, [songs, activeTags, q]);
 
   const toggleTag = (tag: string) => {
     setActiveTags((cur) => cur.includes(tag) ? cur.filter((t) => t !== tag) : [...cur, tag]);

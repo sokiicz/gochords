@@ -27,6 +27,8 @@ import { CommunitiesPage } from './views/CommunitiesPage';
 import { CommunityDetailPage } from './views/CommunityDetailPage';
 import { JoinPage } from './views/JoinPage';
 import { ProfilePage } from './views/ProfilePage';
+import { ArtistPage } from './views/ArtistPage';
+import { ContributionsPage } from './views/ContributionsPage';
 
 export default function App() {
   const auth = useAuth();
@@ -41,6 +43,7 @@ export default function App() {
   const [fontSize, setFontSize] = useState<0 | 1 | 2>(initialPrefs.fontSize);
   const [scrollSpeed, setScrollSpeed] = useState(initialPrefs.scrollSpeed);
   const [instrument, setInstrument] = useState<Instrument>(initialPrefs.instrument);
+  const [diagramSize, setDiagramSize] = useState(initialPrefs.diagramSize);
 
   const [navOpen, setNavOpen] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -52,7 +55,7 @@ export default function App() {
   const [libraryRefresh, setLibraryRefresh] = useState(0);
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
 
-  useEffect(() => savePrefs({ darkMode, fontSize, scrollSpeed, instrument }), [darkMode, fontSize, scrollSpeed, instrument]);
+  useEffect(() => savePrefs({ darkMode, fontSize, scrollSpeed, instrument, diagramSize }), [darkMode, fontSize, scrollSpeed, instrument, diagramSize]);
   useEffect(() => { document.documentElement.dataset.theme = darkMode ? 'dark' : 'light'; }, [darkMode]);
   useEffect(() => { document.documentElement.dataset.fontsize = String(fontSize); }, [fontSize]);
 
@@ -318,6 +321,26 @@ export default function App() {
         />
       );
       break;
+    case 'artist':
+      main = (
+        <ArtistPage
+          slug={route.slug}
+          signedIn={signedIn}
+          onRequireSignIn={requireSignInForActions}
+          onToast={pushToast}
+        />
+      );
+      break;
+    case 'contributions':
+      main = (
+        <ContributionsPage
+          signedIn={signedIn}
+          onSignInClick={() => setSignInModal({ reason: 'Sign in to see your contributions.' })}
+          onRequireSignIn={requireSignInForActions}
+          onToast={pushToast}
+        />
+      );
+      break;
     case 'profile':
       main = (
         <ProfilePage
@@ -364,10 +387,12 @@ export default function App() {
           fontSize={fontSize}
           scrollSpeed={scrollSpeed}
           instrument={instrument}
+          diagramSize={diagramSize}
           onToggleDark={() => setDarkMode((v) => !v)}
           onFontSizeChange={setFontSize}
           onScrollSpeedChange={setScrollSpeed}
           onInstrumentChange={setInstrument}
+          onDiagramSizeChange={setDiagramSize}
           onEdit={openEdit}
           onFork={handleFork}
           liked={likedIds.has(routeSong.id)}

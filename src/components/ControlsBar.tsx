@@ -1,5 +1,6 @@
 import { INSTRUMENTS, type Instrument } from '../lib/chords';
 import { ALL_KEYS, effectiveKey, effectiveShift, keyDelta, parseRoot } from '../lib/transpose';
+import type { DiagramSize } from '../lib/storage';
 import { Icon } from './Icon';
 
 interface Props {
@@ -12,10 +13,12 @@ interface Props {
   scrollSpeed: number;
   scrollPlaying: boolean;
   instrument: Instrument;
+  diagramSize: DiagramSize;
   simplify: boolean;
   onTransposeChange: (v: number) => void;
   onCapoChange: (v: number) => void;
   onFontSizeChange: (v: 0 | 1 | 2) => void;
+  onDiagramSizeChange: (v: DiagramSize) => void;
   onToggleDark: () => void;
   onScrollSpeedChange: (v: number) => void;
   onToggleScroll: () => void;
@@ -24,6 +27,11 @@ interface Props {
   onResetAll: () => void;
   onMenu: () => void;
   canReset: boolean;
+}
+
+const DIAGRAM_SIZES: DiagramSize[] = ['sm', 'md', 'lg'];
+function nextDiagramSize(s: DiagramSize): DiagramSize {
+  return DIAGRAM_SIZES[(DIAGRAM_SIZES.indexOf(s) + 1) % DIAGRAM_SIZES.length];
 }
 
 const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
@@ -145,6 +153,15 @@ export function ControlsBar(p: Props) {
         aria-label="Reset"
       >
         <Icon name="reset" />
+      </button>
+
+      <button
+        className="pill-btn"
+        onClick={() => p.onDiagramSizeChange(nextDiagramSize(p.diagramSize))}
+        title="Cycle chord diagram size"
+        aria-label={`Diagram size: ${p.diagramSize}. Click to change.`}
+      >
+        Diagrams {p.diagramSize === 'sm' ? 'S' : p.diagramSize === 'md' ? 'M' : 'L'}
       </button>
 
       <div className="control-group">

@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "audit": "tsx scripts/audit-chords.ts",
-    "test": "tsx scripts/test-parser.ts && tsx scripts/test-transpose.ts"
+    "test": "tsx scripts/test-parser.ts && tsx scripts/test-transpose.ts && tsx scripts/test-search.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.3",

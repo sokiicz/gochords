@@ -2012,3 +2012,61 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
   .play-btn { width: 34px; height: 34px; }
   .step-btn { width: 28px; height: 28px; }
 }
+
+/* ============================================================================
+   Added in batch 3 — links, credit, stats, notes, diagram sizing, mobile wrap
+   ========================================================================= */
+
+/* Anchor reset for nav links / artist pills */
+.nav-brand { text-decoration: none; color: inherit; cursor: pointer; }
+.nav-link { text-decoration: none; }
+.song-hero-eyebrow a { color: inherit; text-decoration: none; border-bottom: 1px dotted currentColor; }
+.song-hero-eyebrow a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* Song header credit row */
+.song-credit { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 14px; font-size: var(--t-xs); color: var(--text-dim); }
+.song-credit strong { color: var(--text-soft); font-weight: 600; }
+
+/* Inline notes (*text*) */
+.lyric-note { color: var(--text-dim); font-style: italic; font-size: 0.88em; }
+
+/* Contributions stats */
+.stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 22px; }
+.stat-card { background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--r); padding: 14px 16px; }
+.stat-value { font-family: var(--font-display); font-size: var(--t-2xl); font-weight: 600; line-height: 1; color: var(--text); }
+.stat-label { font-size: var(--t-xs); color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 6px; }
+
+/* Adjustable chord-diagram sizes */
+.chords-strip-sm .chord-tile-canvas,
+.chords-strip-sm .chord-tile-missing { width: 54px; height: 66px; }
+.chords-strip-sm .chord-tile-name { font-size: var(--t-sm); }
+.chords-strip-sm .chord-tile { padding: 8px 8px 6px; }
+.chords-strip-lg .chord-tile-canvas,
+.chords-strip-lg .chord-tile-missing { width: 100px; height: 120px; }
+.chords-strip-lg .chord-tile-name { font-size: var(--t-lg); }
+.chords-strip-lg .chord-tile { padding: 14px 14px 10px; }
+
+/* Chord-line wrapping: each "unit" is an indivisible chord+lyric piece.
+   Allow lines to wrap between units on narrow viewports without breaking inside one. */
+.sheet-line { row-gap: 4px; }
+.unit { break-inside: avoid; }
+
+/* Mobile-specific tightening */
+@media (max-width: 720px) {
+  .sheet-line { font-size: 0.96em; }
+  .controls { padding-left: 60px; padding-right: 12px; gap: 8px 12px; }
+  .song-header h2,
+  .song-hero-text h2 { word-break: break-word; }
+  .song-hero-art { flex-shrink: 0; }
+  .song-meta { gap: 6px; }
+  .pill-btn, .icon-btn { padding: 6px 10px; }
+  /* Featured-artist line + credit need to wrap */
+  .song-hero-eyebrow { line-height: 1.4; }
+}
+@media (max-width: 480px) {
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
+  .controls .control-group { gap: 4px; }
+  .sheet-page { padding: 22px 14px 36px; }
+  /* Ensure controls bar reflow doesn't push the theme button alone on a row weirdly */
+  .theme-btn { margin-left: 0; }
+}

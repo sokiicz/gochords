@@ -54,6 +54,30 @@ export interface CatalogPage {
   cursor: string | null;
 }
 
+/** Distinct primary-artist names from public songs (sorted), with a per-session cache. */
+let artistListCache: { at: number; data: string[] } | null = null;
+const ARTIST_LIST_TTL_MS = 60_000;
+
+export async function fetchArtistList(): Promise<string[]> {
+  if (artistListCache && Date.now() - artistListCache.at < ARTIST_LIST_TTL_MS) {
+    return artistListCache.data;
+  }
+  const sb = requireSupabase();
+  const { data, error } = await sb.from('songs').select('artist').eq('visibility', 'public').limit(1000);
+  if (error) throw error;
+  const seen = new Set<string>();
+  for (const row of data ?? []) {
+    const a = (row as { artist: string }).artist?.trim();
+    if (!a) continue;
+    // Strip "ft./feat./featuring …" so autocomplete suggests primary artists, not collab strings.
+    const primary = a.split(/\s+(?:ft\.?|feat\.?|featuring)\s+/i)[0].trim();
+    if (primary) seen.add(primary);
+  }
+  const result = [...seen].sort((a, b) => a.localeCompare(b));
+  artistListCache = { at: Date.now(), data: result };
+  return result;
+}
+
 /** Public catalog with sort + filter. */
 export async function fetchCatalog(query: CatalogQuery = {}): Promise<CatalogPage> {
   const limit = query.limit ?? 100;
