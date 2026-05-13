@@ -10,7 +10,17 @@
   "theme_color": "#5e7c4d",
   "categories": ["music", "entertainment", "productivity"],
   "icons": [
-    { "src": "/icon.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "any" },
-    { "src": "/icon-maskable.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "maskable" }
+    {
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192 512x512 any",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192 512x512 any",
+      "purpose": "maskable"
+    }
   ]
 }
