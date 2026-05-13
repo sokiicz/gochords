@@ -182,6 +182,29 @@ check(
   check('strum: lone D is chord-row, not strum', line?.kind, 'chord');
 }
 
+{
+  // A row of just "D D D" (three same-letter chord names) must NOT be a strum row.
+  // Without an explicit "Strum:" prefix, detection now requires a real rhythm cue
+  // (mixed D+U, lowercase d/u, X mute, or arrows).
+  const song = parse('D D D');
+  const line = song.sections[0]?.lines[0];
+  check('strum: D D D stays a chord row', line?.kind, 'chord');
+}
+
+{
+  // lowercase d/u alone is a rhythm cue
+  const song = parse('d u d u d u');
+  const line = song.sections[0]?.lines[0];
+  check('strum: lowercase d/u detected as strum', line?.kind, 'strum');
+}
+
+{
+  // arrows alone are a rhythm cue
+  const song = parse('↓ ↓ ↑ ↓ ↑');
+  const line = song.sections[0]?.lines[0];
+  check('strum: arrows detected as strum', line?.kind, 'strum');
+}
+
 // --- language detection ---
 check(
   'lang: clearly English',

@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Song } from '../lib/songModel';
 import { listMyPlaylists, createPlaylist, addSongToPlaylist, type Playlist } from '../lib/playlists';
-import { listMyCommunities, listOpenCommunities, addSongToCommunity, type Community } from '../lib/communities';
+import {
+  listMyCommunities,
+  listOpenCommunities,
+  addSongToCommunity,
+  createCommunity,
+  type Community,
+} from '../lib/communities';
 import { Icon } from './Icon';
 
 interface Props {
@@ -111,7 +117,6 @@ export function SongActionsMenu({ song, signedIn, liked, onToggleLike, onRequire
         setPlaylists((cur) => (cur ? [pl, ...cur] : [pl]));
         await handleAddToPlaylist(pl);
       } else if (creatingFor === 'community') {
-        const { createCommunity } = await import('../lib/communities');
         const c = await createCommunity({ name });
         setCommunities((cur) => (cur ? [c, ...cur] : [c]));
         await handleAddToCommunity(c);

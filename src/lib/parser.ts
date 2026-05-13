@@ -78,10 +78,16 @@ function parseStrumLine(line: string): StrumLine | null {
     // whitespace just acts as visual separation between tokens
   }
   if (tokens.length === 0) return null;
-  // Require either an explicit prefix OR ≥3 stroke tokens to avoid catching plain text
-  // accidentally (a "D" by itself shouldn't become a strum row).
-  const strokes = tokens.filter((t) => t.kind === 'down' || t.kind === 'up' || t.kind === 'mute').length;
-  if (!hadPrefix && strokes < 3) return null;
+  // Without an explicit "Strum:" prefix, only treat a row as a strum pattern when
+  // it contains an unambiguous rhythm cue: arrows, lowercase d/u, an X mute, or
+  // a mix of D and U. A row of plain "D D D" stays a chord row.
+  if (!hadPrefix) {
+    const hasArrow = /[↓↑]/.test(body);
+    const hasLowercase = /[du]/.test(body);
+    const hasMute = /[Xx]/.test(body);
+    const hasMixed = /D/.test(body) && /U/.test(body);
+    if (!(hasMixed || hasArrow || hasLowercase || hasMute)) return null;
+  }
   return { kind: 'strum', tokens };
 }
 

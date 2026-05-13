@@ -2099,24 +2099,25 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
 .icon-btn-on { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
 .icon-btn-on:hover { background: var(--accent-soft); }
 
-/* Mini controls — minimal sticky row shown while scrolling away from the top */
-.mini-controls {
-  position: sticky;
-  top: 0;
-  z-index: 11;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 14px 6px 56px;
-  background: rgba(251, 246, 233, 0.92);
-  backdrop-filter: saturate(180%) blur(12px);
-  -webkit-backdrop-filter: saturate(180%) blur(12px);
-  border-bottom: 1px solid var(--border);
-}
-:root[data-theme='dark'] .mini-controls { background: rgba(26, 24, 18, 0.92); }
-.player-collapsed .controls { display: none; }
-@media (min-width: 801px) {
-  .mini-controls { padding-left: 24px; }
+/* Mini controls — minimal sticky row shown on mobile while scrolling away
+   from the top. Desktop keeps the full controls bar permanently. */
+.mini-controls { display: none; }
+@media (max-width: 800px) {
+  .mini-controls {
+    position: sticky;
+    top: 0;
+    z-index: 11;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 14px 6px 56px;
+    background: rgba(251, 246, 233, 0.92);
+    backdrop-filter: saturate(180%) blur(12px);
+    -webkit-backdrop-filter: saturate(180%) blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  :root[data-theme='dark'] .mini-controls { background: rgba(26, 24, 18, 0.92); }
+  .player-collapsed .controls { display: none; }
 }
 
 /* Contributions list view */
