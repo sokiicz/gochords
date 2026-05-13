@@ -12,6 +12,7 @@ import { fetchMyLikedSongIds, likeSong, unlikeSong } from './lib/likes';
 import { fromCloud, fromLocal, type Song } from './lib/songModel';
 import { cloudEnabled } from './lib/supabase';
 import { useAuth } from './lib/auth';
+import { detectLanguage, mergeLanguageTag } from './lib/language';
 import { navigate, useHashRoute } from './lib/router';
 import { NavSidebar } from './components/NavSidebar';
 import { Toasts, type Toast } from './components/Toasts';
@@ -108,7 +109,8 @@ export default function App() {
 
   const handleFormSubmit = useCallback(async (draft: SongFormDraft) => {
     const tempo = draft.tempo.trim() ? Number(draft.tempo) : null;
-    const tags = draft.tags.split(',').map((t) => t.trim()).filter(Boolean);
+    const userTags = draft.tags.split(',').map((t) => t.trim()).filter(Boolean);
+    const tags = mergeLanguageTag(userTags, detectLanguage(draft.source));
     const isCloud = signedIn && cloudEnabled;
 
     try {
