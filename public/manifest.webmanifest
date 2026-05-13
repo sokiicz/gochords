@@ -1,0 +1,16 @@
+{
+  "name": "GoChords",
+  "short_name": "GoChords",
+  "description": "Import, transpose, and play chord sheets in your browser.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#fbf6e9",
+  "theme_color": "#5e7c4d",
+  "categories": ["music", "entertainment", "productivity"],
+  "icons": [
+    { "src": "/icon.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "any" },
+    { "src": "/icon-maskable.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "maskable" }
+  ]
+}
