@@ -14,11 +14,13 @@ interface Props {
   scrollPlaying: boolean;
   instrument: Instrument;
   diagramSize: DiagramSize;
+  stickyChords: boolean;
   simplify: boolean;
   onTransposeChange: (v: number) => void;
   onCapoChange: (v: number) => void;
   onFontSizeChange: (v: 0 | 1 | 2) => void;
   onDiagramSizeChange: (v: DiagramSize) => void;
+  onToggleStickyChords: () => void;
   onToggleDark: () => void;
   onScrollSpeedChange: (v: number) => void;
   onToggleScroll: () => void;
@@ -188,25 +190,28 @@ export function ControlsBar(p: Props) {
         <button className="play-btn" onClick={p.onToggleScroll} aria-label={p.scrollPlaying ? 'Pause auto-scroll' : 'Start auto-scroll'} title="Auto-scroll (Space)">
           <Icon name={p.scrollPlaying ? 'pause' : 'play'} size={16} />
         </button>
-        <span className="control-label">Speed</span>
-        <button
-          className="step-btn"
-          onClick={() => p.onScrollSpeedChange(clamp(p.scrollSpeed - 1, 1, 10))}
-          disabled={p.scrollSpeed <= 1}
-          aria-label="Slower"
-        >
-          <Icon name="minus" size={14} />
-        </button>
-        <span className="control-value">{p.scrollSpeed}</span>
-        <button
-          className="step-btn"
-          onClick={() => p.onScrollSpeedChange(clamp(p.scrollSpeed + 1, 1, 10))}
-          disabled={p.scrollSpeed >= 10}
-          aria-label="Faster"
-        >
-          <Icon name="plus" size={14} />
-        </button>
+        <input
+          type="range"
+          className="speed-slider"
+          min={1}
+          max={50}
+          step={1}
+          value={p.scrollSpeed}
+          onChange={(e) => p.onScrollSpeedChange(clamp(Number(e.target.value), 1, 50))}
+          aria-label="Auto-scroll speed"
+          title={`Speed ${p.scrollSpeed}`}
+        />
       </div>
+
+      <button
+        className={`icon-btn ${p.stickyChords ? 'icon-btn-on' : ''}`}
+        onClick={p.onToggleStickyChords}
+        aria-pressed={p.stickyChords}
+        aria-label="Pin chord strip while scrolling"
+        title="Pin chord diagrams to the top while scrolling"
+      >
+        <Icon name="pin" size={14} />
+      </button>
 
       <button className="icon-btn theme-btn" onClick={p.onToggleDark} aria-label="Toggle dark mode" title="Toggle theme">
         <Icon name={p.darkMode ? 'sun' : 'moon'} />

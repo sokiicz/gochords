@@ -44,6 +44,7 @@ export default function App() {
   const [scrollSpeed, setScrollSpeed] = useState(initialPrefs.scrollSpeed);
   const [instrument, setInstrument] = useState<Instrument>(initialPrefs.instrument);
   const [diagramSize, setDiagramSize] = useState(initialPrefs.diagramSize);
+  const [stickyChords, setStickyChords] = useState(initialPrefs.stickyChords);
 
   const [navOpen, setNavOpen] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -55,7 +56,7 @@ export default function App() {
   const [libraryRefresh, setLibraryRefresh] = useState(0);
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
 
-  useEffect(() => savePrefs({ darkMode, fontSize, scrollSpeed, instrument, diagramSize }), [darkMode, fontSize, scrollSpeed, instrument, diagramSize]);
+  useEffect(() => savePrefs({ darkMode, fontSize, scrollSpeed, instrument, diagramSize, stickyChords }), [darkMode, fontSize, scrollSpeed, instrument, diagramSize, stickyChords]);
   useEffect(() => { document.documentElement.dataset.theme = darkMode ? 'dark' : 'light'; }, [darkMode]);
   useEffect(() => { document.documentElement.dataset.fontsize = String(fontSize); }, [fontSize]);
 
@@ -388,11 +389,13 @@ export default function App() {
           scrollSpeed={scrollSpeed}
           instrument={instrument}
           diagramSize={diagramSize}
+          stickyChords={stickyChords}
           onToggleDark={() => setDarkMode((v) => !v)}
           onFontSizeChange={setFontSize}
           onScrollSpeedChange={setScrollSpeed}
           onInstrumentChange={setInstrument}
           onDiagramSizeChange={setDiagramSize}
+          onToggleStickyChords={() => setStickyChords((v) => !v)}
           onEdit={openEdit}
           onFork={handleFork}
           liked={likedIds.has(routeSong.id)}

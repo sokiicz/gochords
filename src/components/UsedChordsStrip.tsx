@@ -7,13 +7,15 @@ interface Props {
   instrument: Instrument;
   darkMode: boolean;
   size?: DiagramSize;
+  sticky?: boolean;
   onChordClick: (chord: string) => void;
 }
 
-export function UsedChordsStrip({ chords, instrument, darkMode, size = 'md', onChordClick }: Props) {
+export function UsedChordsStrip({ chords, instrument, darkMode, size = 'md', sticky = false, onChordClick }: Props) {
   if (chords.length === 0) return null;
+  const cls = ['chords-strip', `chords-strip-${size}`, sticky ? 'chords-strip-sticky' : ''].filter(Boolean).join(' ');
   return (
-    <div className={`chords-strip chords-strip-${size}`} role="region" aria-label="Chords used in this song">
+    <div className={cls} role="region" aria-label="Chords used in this song">
       <div className="chords-strip-inner">
         {chords.map((c) => (
           <ChordTile

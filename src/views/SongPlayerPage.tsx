@@ -39,11 +39,13 @@ interface Props {
   scrollSpeed: number;
   instrument: Instrument;
   diagramSize: DiagramSize;
+  stickyChords: boolean;
   onToggleDark: () => void;
   onFontSizeChange: (v: 0 | 1 | 2) => void;
   onScrollSpeedChange: (v: number) => void;
   onInstrumentChange: (v: Instrument) => void;
   onDiagramSizeChange: (v: DiagramSize) => void;
+  onToggleStickyChords: () => void;
   onEdit: (song: Song) => void;
   onFork: (song: Song) => void;
   liked: boolean;
@@ -145,7 +147,7 @@ export function SongPlayerPage(p: Props) {
       last = now;
       const el = scrollRef.current;
       if (el) {
-        const pxPerSec = p.scrollSpeed * 8;
+        const pxPerSec = p.scrollSpeed * 2;
         carryRef.current += pxPerSec * dt;
         const whole = Math.floor(carryRef.current);
         if (whole > 0) {
@@ -160,7 +162,6 @@ export function SongPlayerPage(p: Props) {
     return () => { if (rafRef.current !== null) cancelAnimationFrame(rafRef.current); };
   }, [scrollPlaying, p.scrollSpeed]);
 
-  const stopScroll = useCallback(() => { if (scrollPlaying) setScrollPlaying(false); }, [scrollPlaying]);
   const resetAll = useCallback(() => { setTranspose(0); setCapo(song.defaultCapo); setSimplify(false); }, [song.defaultCapo]);
 
   useKeyboard(
@@ -193,11 +194,13 @@ export function SongPlayerPage(p: Props) {
         scrollPlaying={scrollPlaying}
         instrument={p.instrument}
         diagramSize={p.diagramSize}
+        stickyChords={p.stickyChords}
         simplify={simplify}
         onTransposeChange={setTranspose}
         onCapoChange={setCapo}
         onFontSizeChange={p.onFontSizeChange}
         onDiagramSizeChange={p.onDiagramSizeChange}
+        onToggleStickyChords={p.onToggleStickyChords}
         onToggleDark={p.onToggleDark}
         onScrollSpeedChange={p.onScrollSpeedChange}
         onToggleScroll={() => setScrollPlaying((v) => !v)}
@@ -208,12 +211,7 @@ export function SongPlayerPage(p: Props) {
         onMenu={() => { /* hamburger handled by AppShell */ }}
       />
 
-      <div
-        className="sheet-scroll"
-        ref={scrollRef}
-        onClick={stopScroll}
-        onTouchStart={stopScroll}
-      >
+      <div className="sheet-scroll" ref={scrollRef}>
         <div className="sheet-page">
         <header className="song-header">
           <div className="song-hero">
@@ -291,6 +289,7 @@ export function SongPlayerPage(p: Props) {
           instrument={p.instrument}
           darkMode={p.darkMode}
           size={p.diagramSize}
+          sticky={p.stickyChords}
           onChordClick={(c) => setDiagramChord(c)}
         />
 
