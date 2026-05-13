@@ -35,14 +35,16 @@ export interface Prefs {
   scrollSpeed: number;
   instrument: Instrument;
   diagramSize: DiagramSize;
+  stickyChords: boolean;
 }
 
 const DEFAULT_PREFS: Prefs = {
   darkMode: false,
   fontSize: 1,
-  scrollSpeed: 4,
+  scrollSpeed: 12,
   instrument: 'guitar',
   diagramSize: 'md',
+  stickyChords: false,
 };
 
 const MIGRATION_KEY = 'gochords:migrated:v2';
@@ -86,7 +88,12 @@ export function saveSongs(songs: StoredSong[]): void {
 export function loadPrefs(): Prefs {
   try {
     const raw = localStorage.getItem(PREFS_KEY);
-    if (raw) return { ...DEFAULT_PREFS, ...JSON.parse(raw) };
+    if (raw) {
+      const merged: Prefs = { ...DEFAULT_PREFS, ...JSON.parse(raw) };
+      // Migrate old 1..10 scrollSpeed scale to new 1..50 (was speed*8 px/s, now speed*2 px/s).
+      if (merged.scrollSpeed <= 10) merged.scrollSpeed = Math.max(2, Math.round(merged.scrollSpeed * 4));
+      return merged;
+    }
   } catch {}
   return DEFAULT_PREFS;
 }

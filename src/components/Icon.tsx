@@ -1,7 +1,7 @@
 type IconName =
   | 'menu' | 'sun' | 'moon' | 'play' | 'pause' | 'reset' | 'minus' | 'plus'
   | 'close' | 'edit' | 'duplicate' | 'trash' | 'plusCircle'
-  | 'heart' | 'heartFilled' | 'more' | 'list' | 'users' | 'star' | 'check';
+  | 'heart' | 'heartFilled' | 'more' | 'list' | 'users' | 'star' | 'check' | 'pin';
 
 const PATHS: Record<IconName, string> = {
   menu:        'M4 6h16M4 12h16M4 18h16',
@@ -24,6 +24,7 @@ const PATHS: Record<IconName, string> = {
   users:       'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
   star:        'M12 2l3 7 7 .8-5.2 4.8 1.5 7-6.3-3.7-6.3 3.7 1.5-7L2 9.8 9 9z',
   check:       'M5 12l5 5L20 7',
+  pin:         'M12 2v6M9 8h6l1.5 4.5L12 17 7.5 12.5z M12 17v5',
 };
 
 interface Props {
