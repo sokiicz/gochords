@@ -991,32 +991,30 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
 
 /* Used-chords strip */
 .chords-strip {
-  margin: 0 0 28px;
-  padding: 14px;
+  margin: 0 0 22px;
+  padding: 8px;
   background: var(--bg-1);
   border: 1px solid var(--border);
-  border-radius: var(--r-lg);
+  border-radius: var(--r);
   overflow-x: auto;
 }
-.chords-strip-inner { display: flex; gap: 10px; min-width: max-content; }
+.chords-strip-inner { display: flex; gap: 4px; min-width: max-content; }
 .chord-tile {
-  background: var(--bg-2);
-  border: 1px solid var(--border);
-  border-radius: var(--r);
-  padding: 8px 6px 6px;
-  width: 88px;
-  flex: 0 0 88px;
+  background: transparent;
+  border: 0;
+  padding: 2px 4px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   cursor: pointer;
-  transition: border-color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease);
+  transition: background var(--t-fast) var(--ease);
+  border-radius: var(--r-sm);
 }
-.chord-tile:hover { border-color: var(--accent); transform: translateY(-2px); }
-.chord-tile-name { font-family: var(--font-mono); font-weight: 700; color: var(--accent); font-size: var(--t-md); }
-.chord-tile-canvas { width: 76px; height: 92px; }
-.chord-tile-missing { width: 76px; height: 92px; display: flex; align-items: center; justify-content: center; color: var(--text-faint); font-size: var(--t-xl); }
+.chord-tile:hover { background: var(--bg-2); }
+.chord-tile-name { font-family: var(--font-mono); font-weight: 700; color: var(--accent); font-size: var(--t-sm); }
+.chord-tile-canvas { width: 60px; height: 72px; }
+.chord-tile-missing { width: 60px; height: 72px; display: flex; align-items: center; justify-content: center; color: var(--text-faint); font-size: var(--t-lg); }
 
 /* Sheet body */
 .sheet { font-family: var(--font-mono); font-size: var(--sheet-size-1); }
@@ -2099,6 +2097,26 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
 .icon-btn-on { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
 .icon-btn-on:hover { background: var(--accent-soft); }
 
+/* Mini controls — minimal sticky row shown while scrolling away from the top */
+.mini-controls {
+  position: sticky;
+  top: 0;
+  z-index: 11;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px 6px 56px;
+  background: rgba(251, 246, 233, 0.92);
+  backdrop-filter: saturate(180%) blur(12px);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+:root[data-theme='dark'] .mini-controls { background: rgba(26, 24, 18, 0.92); }
+.player-collapsed .controls { display: none; }
+@media (min-width: 801px) {
+  .mini-controls { padding-left: 24px; }
+}
+
 /* Contributions list view */
 .contrib-toolbar { display: flex; align-items: center; gap: 8px; margin: 6px 0 12px; }
 .contrib-toolbar-label { font-size: var(--t-xs); color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
@@ -2156,6 +2174,32 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
 .user-playlist-row:hover { border-color: var(--accent); background: var(--bg-2); }
 .user-playlist-name { font-weight: 600; }
 .user-playlist-desc { font-size: var(--t-xs); color: var(--text-dim); margin-top: 2px; }
+
+/* Follow button on user profile */
+.user-profile-header { align-items: flex-start; }
+.user-follow-btn { align-self: center; margin-left: auto; min-width: 110px; }
+.user-follow-btn-on { background: var(--bg-2); color: var(--text); border: 1px solid var(--border); }
+.user-follow-btn-on:hover { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
+
+/* Following page */
+.following-list { display: flex; flex-direction: column; gap: 14px; }
+.following-card { border: 1px solid var(--border); border-radius: var(--r); background: var(--bg-1); padding: 14px 16px; }
+.following-card-head { display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; margin-bottom: 10px; }
+.following-card-head:hover .following-name { color: var(--accent); }
+.following-avatar {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: var(--accent-soft); color: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-weight: 600;
+}
+.following-name { font-weight: 600; }
+.following-handle { font-size: var(--t-xs); color: var(--text-dim); }
+.following-songs { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.following-songs a { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: var(--r-sm); color: inherit; text-decoration: none; }
+.following-songs a:hover { background: var(--bg-2); }
+.following-song-title { font-weight: 500; }
+.following-song-artist { color: var(--text-dim); font-size: var(--t-xs); margin-left: auto; }
+.following-empty { font-size: var(--t-sm); color: var(--text-dim); padding: 4px 8px; }
 
 /* Resonant Labs link in the nav footer */
 .nav-affiliate {
@@ -2246,18 +2290,21 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
   .theme-btn { margin-left: 0; }
 
   /* Sticky chord strip should also stay on one row and scroll horizontally rather than wrap. */
-  .chords-strip-sticky { padding: 4px 14px; }
+  .chords-strip-sticky { padding: 4px 8px; }
   .chords-strip-sticky .chords-strip-inner { flex-wrap: nowrap; min-width: max-content; }
 
-  /* Default chord tiles SHRINK on mobile so a typical song fits without scroll. */
-  .chord-tile-canvas, .chord-tile-missing { width: 54px; height: 66px; }
-  .chord-tile-name { font-size: var(--t-sm); }
-  .chord-tile { padding: 8px 8px 6px; }
+  /* Default chord tiles shrink further on mobile — diagram is the content,
+     not the box around it. */
+  .chords-strip { padding: 6px; }
+  .chords-strip-inner { gap: 2px; }
+  .chord-tile { padding: 2px 2px; gap: 1px; }
+  .chord-tile-canvas, .chord-tile-missing { width: 44px; height: 54px; }
+  .chord-tile-name { font-size: 11px; }
   /* User-chosen sizes still override the mobile default. */
   .chords-strip-sm .chord-tile-canvas,
-  .chords-strip-sm .chord-tile-missing { width: 48px; height: 60px; }
+  .chords-strip-sm .chord-tile-missing { width: 38px; height: 48px; }
   .chords-strip-lg .chord-tile-canvas,
-  .chords-strip-lg .chord-tile-missing { width: 76px; height: 92px; }
+  .chords-strip-lg .chord-tile-missing { width: 60px; height: 72px; }
 
   /* Compact song hero */
   .song-header { margin-bottom: 14px; }

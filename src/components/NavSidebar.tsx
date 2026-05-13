@@ -88,6 +88,10 @@ export function NavSidebar({ route, cloudEnabled, signedIn, open, onClose, onImp
             <Icon name="edit" size={16} />
             <span>My Contributions</span>
           </NavLink>
+          <NavLink to={{ name: 'following' }} active={is('following')} onClose={onClose}>
+            <Icon name="users" size={16} />
+            <span>Following</span>
+          </NavLink>
         </nav>
 
         <button className="nav-import" onClick={onImport}>

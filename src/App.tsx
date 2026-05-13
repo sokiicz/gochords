@@ -30,6 +30,7 @@ import { ProfilePage } from './views/ProfilePage';
 import { ArtistPage } from './views/ArtistPage';
 import { ContributionsPage } from './views/ContributionsPage';
 import { UserProfilePage } from './views/UserProfilePage';
+import { FollowingPage } from './views/FollowingPage';
 
 export default function App() {
   const auth = useAuth();
@@ -338,8 +339,17 @@ export default function App() {
         <UserProfilePage
           handle={route.handle}
           signedIn={signedIn}
+          userId={userId}
           onRequireSignIn={requireSignInForActions}
           onToast={pushToast}
+        />
+      );
+      break;
+    case 'following':
+      main = (
+        <FollowingPage
+          signedIn={signedIn}
+          onSignInClick={() => setSignInModal({ reason: 'Sign in to follow other users.' })}
         />
       );
       break;

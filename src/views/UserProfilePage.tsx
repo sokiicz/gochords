@@ -1,5 +1,13 @@
 import { useEffect, useState } from 'react';
-import { fetchProfileByHandle, type Profile } from '../lib/profile';
+import {
+  amIFollowing,
+  fetchFollowCounts,
+  fetchProfileByIdentifier,
+  followUser,
+  unfollowUser,
+  type FollowCounts,
+  type Profile,
+} from '../lib/profile';
 import { fetchPublicSongsByOwner, type CloudSong } from '../lib/cloudSongs';
 import { listPublicPlaylistsByOwner, type Playlist } from '../lib/playlists';
 import { fromCloud, type Song } from '../lib/songModel';
@@ -13,35 +21,44 @@ import { Icon } from '../components/Icon';
 interface Props {
   handle: string;
   signedIn: boolean;
+  userId: string | null;
   onRequireSignIn: (reason: string) => void;
   onToast: (msg: string) => void;
 }
 
-export function UserProfilePage({ handle, signedIn, onRequireSignIn, onToast }: Props) {
+export function UserProfilePage({ handle, signedIn, userId, onRequireSignIn, onToast }: Props) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [songs, setSongs] = useState<CloudSong[]>([]);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
+  const [counts, setCounts] = useState<FollowCounts>({ followers: 0, following: 0 });
+  const [following, setFollowing] = useState(false);
+  const [followBusy, setFollowBusy] = useState(false);
+  const [followHover, setFollowHover] = useState(false);
 
   useEffect(() => {
     if (!cloudEnabled) { setLoading(false); return; }
     let cancelled = false;
     setLoading(true);
     setErr(null);
-    fetchProfileByHandle(handle)
+    fetchProfileByIdentifier(handle)
       .then(async (p) => {
         if (cancelled) return;
         if (!p) { setErr('No such user.'); setLoading(false); return; }
         setProfile(p);
-        const [s, pl] = await Promise.all([
+        const [s, pl, fc, am] = await Promise.all([
           fetchPublicSongsByOwner(p.id),
           listPublicPlaylistsByOwner(p.id),
+          fetchFollowCounts(p.id).catch(() => ({ followers: 0, following: 0 } as FollowCounts)),
+          signedIn ? amIFollowing(p.id).catch(() => false) : Promise.resolve(false),
         ]);
         if (cancelled) return;
         setSongs(s);
         setPlaylists(pl);
+        setCounts(fc);
+        setFollowing(am);
         setLoading(false);
       })
       .catch((e) => { if (!cancelled) { setErr(e.message); setLoading(false); } });
@@ -90,6 +107,26 @@ export function UserProfilePage({ handle, signedIn, onRequireSignIn, onToast }: 
 
   const totalSaves = songs.reduce((acc, s) => acc + (s.likeCount ?? 0), 0);
   const totalPlays = songs.reduce((acc, s) => acc + (s.playCount ?? 0), 0);
+  const isSelf = !!userId && !!profile && profile.id === userId;
+
+  const onFollowClick = async () => {
+    if (!profile) return;
+    if (!signedIn) { onRequireSignIn('Sign in to follow.'); return; }
+    setFollowBusy(true);
+    const wasFollowing = following;
+    setFollowing(!wasFollowing);
+    setCounts((c) => ({ ...c, followers: c.followers + (wasFollowing ? -1 : 1) }));
+    try {
+      if (wasFollowing) await unfollowUser(profile.id);
+      else await followUser(profile.id);
+    } catch (e: any) {
+      setFollowing(wasFollowing);
+      setCounts((c) => ({ ...c, followers: c.followers + (wasFollowing ? 1 : -1) }));
+      onToast(`Failed: ${e.message}`);
+    } finally {
+      setFollowBusy(false);
+    }
+  };
 
   return (
     <div className="page">
@@ -99,16 +136,28 @@ export function UserProfilePage({ handle, signedIn, onRequireSignIn, onToast }: 
         </div>
         <div className="user-profile-meta">
           <h1>{profile?.displayName ?? handle}</h1>
-          <div className="user-profile-sub">@{handle}</div>
+          <div className="user-profile-sub">{profile?.handle ? `@${profile.handle}` : handle}</div>
           {!loading && (
             <div className="user-profile-counts">
               <span>{songs.length} song{songs.length === 1 ? '' : 's'}</span>
               <span>{playlists.length} playlist{playlists.length === 1 ? '' : 's'}</span>
+              <span>{counts.followers} follower{counts.followers === 1 ? '' : 's'}</span>
               <span>{totalSaves} save{totalSaves === 1 ? '' : 's'}</span>
               <span>{totalPlays} play{totalPlays === 1 ? '' : 's'}</span>
             </div>
           )}
         </div>
+        {!loading && profile && !isSelf && (
+          <button
+            className={`primary-btn user-follow-btn ${following ? 'user-follow-btn-on' : ''}`}
+            disabled={followBusy}
+            onClick={onFollowClick}
+            onMouseEnter={() => setFollowHover(true)}
+            onMouseLeave={() => setFollowHover(false)}
+          >
+            {following ? (followHover ? 'Unfollow' : 'Following') : 'Follow'}
+          </button>
+        )}
       </div>
 
       {loading && <SkeletonGrid count={6} />}
