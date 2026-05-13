@@ -103,6 +103,19 @@ export async function fetchCatalog(query: CatalogQuery = {}): Promise<CatalogPag
   return { songs: (data ?? []).map(fromDb), cursor: null };
 }
 
+/** Public songs owned by a specific user. */
+export async function fetchPublicSongsByOwner(ownerId: string): Promise<CloudSong[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from('songs')
+    .select('*')
+    .eq('owner_id', ownerId)
+    .eq('visibility', 'public')
+    .order('updated_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(fromDb);
+}
+
 /** Songs owned by the current authenticated user. */
 export async function fetchMyLibrary(): Promise<CloudSong[]> {
   const sb = requireSupabase();

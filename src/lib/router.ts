@@ -13,6 +13,7 @@ export type Route =
   | { name: 'song'; id: string }
   | { name: 'artist'; slug: string }
   | { name: 'contributions' }
+  | { name: 'user'; handle: string }
   | { name: 'profile' };
 
 function parseHash(raw: string): Route {
@@ -25,6 +26,7 @@ function parseHash(raw: string): Route {
   if (h === 'profile') return { name: 'profile' };
   if (h === 'contributions') return { name: 'contributions' };
   if (h.startsWith('artist/')) return { name: 'artist', slug: decodeURIComponent(h.slice(7)) };
+  if (h.startsWith('u/')) return { name: 'user', handle: decodeURIComponent(h.slice(2)) };
   if (h === 'import') return { name: 'import', from: params.get('from') };
   if (h.startsWith('playlist/'))  return { name: 'playlist',  id: decodeURIComponent(h.slice(9)) };
   if (h.startsWith('community/')) return { name: 'community', slug: decodeURIComponent(h.slice(10)) };
@@ -56,6 +58,7 @@ export function navigate(route: Route): void {
     case 'profile':     hash = '#/profile'; break;
     case 'contributions': hash = '#/contributions'; break;
     case 'artist':      hash = `#/artist/${encodeURIComponent(route.slug)}`; break;
+    case 'user':        hash = `#/u/${encodeURIComponent(route.handle)}`; break;
     case 'join':        hash = `#/join/${encodeURIComponent(route.code)}`; break;
     case 'import':      hash = '#/import' + (route.from ? `?from=${encodeURIComponent(route.from)}` : ''); break;
     case 'edit':        hash = `#/edit/${encodeURIComponent(route.id)}`; break;
@@ -85,6 +88,7 @@ export function routeHref(route: Route): string {
     case 'profile':     return '#/profile';
     case 'contributions': return '#/contributions';
     case 'artist':      return `#/artist/${encodeURIComponent(route.slug)}`;
+    case 'user':        return `#/u/${encodeURIComponent(route.handle)}`;
     case 'join':        return `#/join/${encodeURIComponent(route.code)}`;
     case 'import':      return '#/import' + (route.from ? `?from=${encodeURIComponent(route.from)}` : '');
     case 'edit':        return `#/edit/${encodeURIComponent(route.id)}`;

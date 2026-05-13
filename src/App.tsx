@@ -29,6 +29,7 @@ import { JoinPage } from './views/JoinPage';
 import { ProfilePage } from './views/ProfilePage';
 import { ArtistPage } from './views/ArtistPage';
 import { ContributionsPage } from './views/ContributionsPage';
+import { UserProfilePage } from './views/UserProfilePage';
 
 export default function App() {
   const auth = useAuth();
@@ -326,6 +327,16 @@ export default function App() {
       main = (
         <ArtistPage
           slug={route.slug}
+          signedIn={signedIn}
+          onRequireSignIn={requireSignInForActions}
+          onToast={pushToast}
+        />
+      );
+      break;
+    case 'user':
+      main = (
+        <UserProfilePage
+          handle={route.handle}
           signedIn={signedIn}
           onRequireSignIn={requireSignInForActions}
           onToast={pushToast}

@@ -2099,6 +2099,75 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
 .icon-btn-on { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
 .icon-btn-on:hover { background: var(--accent-soft); }
 
+/* Contributions list view */
+.contrib-toolbar { display: flex; align-items: center; gap: 8px; margin: 6px 0 12px; }
+.contrib-toolbar-label { font-size: var(--t-xs); color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+.contrib-list { display: flex; flex-direction: column; gap: 8px; }
+.contrib-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--bg-1);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color var(--t-fast) var(--ease), background var(--t-fast) var(--ease);
+}
+.contrib-row:hover { border-color: var(--accent); background: var(--bg-2); }
+.contrib-row-main { min-width: 0; }
+.contrib-row-title { font-weight: 600; font-size: var(--t-md); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.contrib-row-artist { font-size: var(--t-xs); color: var(--text-dim); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.contrib-row-stats { display: flex; gap: 12px; }
+.contrib-stat { display: inline-flex; align-items: center; gap: 4px; color: var(--text-dim); font-size: var(--t-sm); font-variant-numeric: tabular-nums; }
+.contrib-row-pills { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.contrib-row-updated { font-size: var(--t-xs); color: var(--text-faint); }
+@media (max-width: 480px) {
+  .contrib-row { grid-template-columns: 1fr auto; gap: 10px; padding: 10px 12px; }
+  .contrib-row-pills { grid-column: 1 / -1; flex-direction: row; align-items: center; justify-content: flex-end; }
+}
+
+/* User profile page */
+.user-profile-header { display: flex; align-items: center; gap: 18px; margin-bottom: 22px; padding: 8px 0 16px; border-bottom: 1px solid var(--border); }
+.user-profile-avatar {
+  width: 72px; height: 72px; border-radius: 50%;
+  background: var(--accent-soft); color: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-size: 32px; font-weight: 600;
+  flex-shrink: 0;
+}
+.user-profile-meta h1 { margin: 0; font-size: var(--t-2xl); }
+.user-profile-sub { color: var(--text-dim); font-size: var(--t-sm); margin-top: 2px; }
+.user-profile-counts { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 8px; font-size: var(--t-xs); color: var(--text-dim); }
+.user-profile-counts span::before { content: '•'; margin-right: 8px; color: var(--text-faint); }
+.user-profile-counts span:first-child::before { content: none; }
+
+.user-playlist-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.user-playlist-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--bg-1);
+  text-decoration: none; color: inherit;
+}
+.user-playlist-row:hover { border-color: var(--accent); background: var(--bg-2); }
+.user-playlist-name { font-weight: 600; }
+.user-playlist-desc { font-size: var(--t-xs); color: var(--text-dim); margin-top: 2px; }
+
+/* Resonant Labs link in the nav footer */
+.nav-affiliate {
+  display: block;
+  margin-top: 10px;
+  font-size: 11px;
+  color: rgba(245, 235, 215, 0.5);
+  text-decoration: none;
+  letter-spacing: 0.04em;
+}
+.nav-affiliate:hover { color: rgba(245, 235, 215, 0.9); }
+
 /* Strumming pattern row */
 .sheet-strum {
   display: flex;
@@ -2150,48 +2219,85 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
 
 /* -------- Mobile (≤720px) -------- */
 @media (max-width: 720px) {
-  /* Text wrapping: allow the lyric to wrap mid-unit if needed.
-     The chord stays put; the lyric below it breaks at word boundaries. */
+  /* Lyrics: wrap inside a unit instead of overflowing. */
   .unit-lyric { white-space: pre-wrap; overflow-wrap: break-word; min-width: 0; }
-  /* Replace the deprecated word-break: break-word — overflow-wrap is the modern equivalent. */
   .song-header h2,
   .song-hero-text h2 { word-break: normal; overflow-wrap: break-word; hyphens: auto; }
 
-  /* Compact controls bar */
-  .controls { padding: 6px 10px 6px 56px; gap: 6px 10px; }
+  /* ---------- Controls bar: ONE compact row, horizontal scroll for overflow ---------- */
+  .controls {
+    padding: 6px 10px 6px 50px;
+    gap: 8px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .controls::-webkit-scrollbar { display: none; }
+  .controls > * { flex: 0 0 auto; }
+  .control-group { gap: 4px; }
   .select { height: 28px; padding: 0 8px; font-size: var(--t-xs); }
   .pill-btn { padding: 5px 9px; font-size: var(--t-xs); }
-  .icon-btn { padding: 5px 8px; }
+  .icon-btn { padding: 5px 7px; }
   .step-btn { width: 26px; height: 26px; }
-  .speed-slider { width: 90px; }
-  .play-btn { width: 32px; height: 32px; }
+  .speed-slider { width: 100px; }
+  .play-btn { width: 30px; height: 30px; }
+  .theme-btn { margin-left: 0; }
+
+  /* Sticky chord strip should also stay on one row and scroll horizontally rather than wrap. */
+  .chords-strip-sticky { padding: 4px 14px; }
+  .chords-strip-sticky .chords-strip-inner { flex-wrap: nowrap; min-width: max-content; }
+
+  /* Default chord tiles SHRINK on mobile so a typical song fits without scroll. */
+  .chord-tile-canvas, .chord-tile-missing { width: 54px; height: 66px; }
+  .chord-tile-name { font-size: var(--t-sm); }
+  .chord-tile { padding: 8px 8px 6px; }
+  /* User-chosen sizes still override the mobile default. */
+  .chords-strip-sm .chord-tile-canvas,
+  .chords-strip-sm .chord-tile-missing { width: 48px; height: 60px; }
+  .chords-strip-lg .chord-tile-canvas,
+  .chords-strip-lg .chord-tile-missing { width: 76px; height: 92px; }
 
   /* Compact song hero */
-  .song-header { margin-bottom: 18px; }
-  .song-hero-art { width: 44px; height: 44px; font-size: 20px; }
-  .song-hero-text h2 { font-size: var(--t-lg); margin-bottom: 6px; line-height: 1.15; }
+  .song-header { margin-bottom: 14px; }
+  .song-hero { gap: 12px; margin-bottom: 8px; }
+  .song-hero-art { width: 40px; height: 40px; font-size: 18px; }
+  .song-hero-text h2 { font-size: var(--t-lg); margin-bottom: 4px; line-height: 1.15; }
   .song-hero-eyebrow { font-size: var(--t-xs); line-height: 1.35; }
-  .song-credit { gap: 10px; margin-top: 8px; }
+  .song-credit { gap: 10px; margin-top: 6px; }
 
   /* Tighter chord-sheet spacing */
   .sheet-line { font-size: 0.96em; margin-bottom: 2px; }
   .sheet-line-chord-only { gap: 10px; margin-bottom: 6px; }
-  .sheet-section { margin-bottom: 18px; }
-  .sheet-section-label { margin: 14px 0 6px; }
+  .sheet-section { margin-bottom: 16px; }
+  .sheet-section-label { margin: 12px 0 4px; }
 
   /* Pills slimmer */
   .key-pill { padding: 1px 7px; }
   .song-meta { gap: 4px; }
+
+  /* Popovers become bottom sheets so they never clip off-screen */
+  .popover {
+    position: fixed;
+    left: 8px;
+    right: 8px;
+    top: auto;
+    bottom: 8px;
+    min-width: 0;
+    max-width: none;
+    z-index: 60;
+    max-height: 70vh;
+    overflow-y: auto;
+  }
 }
 
 /* -------- Tight mobile (≤480px) -------- */
 @media (max-width: 480px) {
   .stats-row { grid-template-columns: repeat(2, 1fr); }
-  .controls .control-group { gap: 4px; }
-  .sheet-page { padding: 18px 12px 32px; }
-  .theme-btn { margin-left: 0; }
-  /* Save more vertical space — drop the art tile entirely on tiny screens */
+  .sheet-page { padding: 16px 12px 28px; }
+  /* Drop the art tile to recover vertical space */
   .song-hero-art { display: none; }
   .song-hero-text h2 { font-size: var(--t-md); }
-  .speed-slider { width: 76px; }
+  .speed-slider { width: 84px; }
 }

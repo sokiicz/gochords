@@ -30,6 +30,13 @@ export async function fetchProfile(userId: string): Promise<Profile | null> {
   return data ? fromDb(data) : null;
 }
 
+export async function fetchProfileByHandle(handle: string): Promise<Profile | null> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.from('profiles').select('*').eq('handle', handle).maybeSingle();
+  if (error) throw error;
+  return data ? fromDb(data) : null;
+}
+
 export interface UpdateProfileInput {
   displayName?: string | null;
   handle?: string | null;

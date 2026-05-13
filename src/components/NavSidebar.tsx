@@ -97,6 +97,14 @@ export function NavSidebar({ route, cloudEnabled, signedIn, open, onClose, onImp
 
         <div className="nav-footer">
           {cloudEnabled ? <AuthMenu onSignInRequest={onSignInRequest} /> : <span className="nav-offline">Offline mode</span>}
+          <a
+            className="nav-affiliate"
+            href="https://resonantlabs.online"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            by Resonant Labs ↗
+          </a>
         </div>
       </aside>
     </>
