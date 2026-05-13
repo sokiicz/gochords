@@ -84,6 +84,10 @@ export function NavSidebar({ route, cloudEnabled, signedIn, open, onClose, onImp
             <span>Playlists</span>
             {!signedIn && cloudEnabled && <span className="nav-lock">·</span>}
           </NavLink>
+          <NavLink to={{ name: 'updates' }} active={is('updates')} onClose={onClose}>
+            <Icon name="heart" size={16} />
+            <span>Updates</span>
+          </NavLink>
           <NavLink to={{ name: 'contributions' }} active={is('contributions')} onClose={onClose}>
             <Icon name="edit" size={16} />
             <span>My Contributions</span>

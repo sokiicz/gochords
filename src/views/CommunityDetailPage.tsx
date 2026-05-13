@@ -8,7 +8,7 @@ import {
 import { listCommunityPlaylists, createPlaylist, type Playlist } from '../lib/playlists';
 import type { CloudSong } from '../lib/cloudSongs';
 import { fromCloud } from '../lib/songModel';
-import { navigate, navigateBack } from '../lib/router';
+import { navigate, navigateBack, routeHref } from '../lib/router';
 import { Icon } from '../components/Icon';
 import { AddSongsToCommunityModal } from '../components/AddSongsToCommunityModal';
 
@@ -233,13 +233,26 @@ export function CommunityDetailPage({ slug, signedIn, userId, onSignInClick, onT
 
           {tab === 'members' && (
             <ul className="member-list">
-              {members.map((m) => (
-                <li key={m.userId} className="member-row">
-                  <span className="member-avatar">{(m.displayName?.[0] || '?').toUpperCase()}</span>
-                  <span className="member-name">{m.displayName || m.userId.slice(0, 8)}</span>
-                  <span className="member-role">{m.role}</span>
-                </li>
-              ))}
+              {members.map((m) => {
+                const target = { name: 'user' as const, handle: m.handle ?? m.userId };
+                return (
+                  <li key={m.userId} className="member-row">
+                    <a
+                      className="member-link"
+                      href={routeHref(target)}
+                      onClick={(e) => {
+                        if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+                        e.preventDefault();
+                        navigate(target);
+                      }}
+                    >
+                      <span className="member-avatar">{(m.displayName?.[0] || m.handle?.[0] || '?').toUpperCase()}</span>
+                      <span className="member-name">{m.displayName || (m.handle ? `@${m.handle}` : m.userId.slice(0, 8))}</span>
+                    </a>
+                    <span className="member-role">{m.role}</span>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </>

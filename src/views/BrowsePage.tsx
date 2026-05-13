@@ -5,6 +5,7 @@ import { fromCloud, type Song } from '../lib/songModel';
 import { cloudEnabled } from '../lib/supabase';
 import { navigate } from '../lib/router';
 import { matches } from '../lib/search';
+import { LANG_CODES, LANG_LABELS, type LangCode } from '../lib/language';
 import { Icon } from '../components/Icon';
 import { SongCard } from '../components/SongCard';
 import { SkeletonGrid } from '../components/Skeleton';
@@ -30,6 +31,7 @@ export function BrowsePage({ signedIn, onImport, onRequireSignIn, onToast }: Pro
   const [q, setQ] = useState('');
   const [sort, setSort] = useState<CatalogSort>('newest');
   const [activeTags, setActiveTags] = useState<string[]>([]);
+  const [activeLang, setActiveLang] = useState<LangCode | ''>('');
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
 
   // Fetch the full catalog (sorted) and filter client-side so diacritics, ampersands,
@@ -65,25 +67,39 @@ export function BrowsePage({ signedIn, onImport, onRequireSignIn, onToast }: Pro
     fetchMyLikedSongIds().then(setLikedIds).catch(() => {});
   }, [signedIn]);
 
-  // Tag chips: union of all tags appearing in the current result, sorted by frequency.
+  // Tag chips: union of NON-LANGUAGE tags by frequency. Languages live in their own picker.
+  const LANG_SET = useMemo(() => new Set<string>(LANG_CODES), []);
   const allTags = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const s of songs) for (const t of (s.tags || [])) counts.set(t, (counts.get(t) ?? 0) + 1);
+    for (const s of songs) for (const t of (s.tags || [])) {
+      if (LANG_SET.has(t)) continue;
+      counts.set(t, (counts.get(t) ?? 0) + 1);
+    }
     return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([t]) => t).slice(0, 12);
-  }, [songs]);
+  }, [songs, LANG_SET]);
+
+  // Languages present in the current catalog (with counts).
+  const availableLangs = useMemo(() => {
+    const counts = new Map<LangCode, number>();
+    for (const s of songs) for (const t of (s.tags || [])) {
+      if (LANG_SET.has(t)) counts.set(t as LangCode, (counts.get(t as LangCode) ?? 0) + 1);
+    }
+    return LANG_CODES.filter((c) => counts.has(c)).map((c) => ({ code: c, count: counts.get(c)! }));
+  }, [songs, LANG_SET]);
 
   const filtered = useMemo(() => {
     let out = songs;
     if (q.trim()) out = out.filter((s) => matches(q, s.title, s.artist));
+    if (activeLang) out = out.filter((s) => (s.tags || []).includes(activeLang));
     if (activeTags.length > 0) out = out.filter((s) => activeTags.every((t) => (s.tags || []).includes(t)));
     return out;
-  }, [songs, activeTags, q]);
+  }, [songs, activeTags, activeLang, q]);
 
   const toggleTag = (tag: string) => {
     setActiveTags((cur) => cur.includes(tag) ? cur.filter((t) => t !== tag) : [...cur, tag]);
   };
 
-  const showHero = !q && activeTags.length === 0 && sort === 'newest';
+  const showHero = !q && activeTags.length === 0 && !activeLang && sort === 'newest';
 
   const toggleLike = async (s: Song) => {
     if (!signedIn) { onRequireSignIn('Sign in to save songs.'); return; }
@@ -148,6 +164,19 @@ export function BrowsePage({ signedIn, onImport, onRequireSignIn, onToast }: Pro
               <Icon name="close" size={14} />
             </button>
           )}
+        </div>
+        <div className="filter-sort">
+          <span className="filter-sort-label">Language</span>
+          <select
+            value={activeLang}
+            onChange={(e) => setActiveLang(e.target.value as LangCode | '')}
+            aria-label="Filter by language"
+          >
+            <option value="">All</option>
+            {availableLangs.map(({ code, count }) => (
+              <option key={code} value={code}>{LANG_LABELS[code]} ({count})</option>
+            ))}
+          </select>
         </div>
         <div className="filter-sort">
           <span className="filter-sort-label">Sort</span>

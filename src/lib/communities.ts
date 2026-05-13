@@ -216,13 +216,14 @@ export interface CommunityMember {
   role: 'owner' | 'admin' | 'member';
   joinedAt: number;
   displayName: string | null;
+  handle: string | null;
 }
 
 export async function listCommunityMembers(communityId: string): Promise<CommunityMember[]> {
   const sb = requireSupabase();
   const { data, error } = await sb
     .from('community_members')
-    .select('user_id, role, joined_at, profile:profiles(display_name)')
+    .select('user_id, role, joined_at, profile:profiles(display_name, handle)')
     .eq('community_id', communityId);
   if (error) throw error;
   return (data ?? []).map((r: any) => ({
@@ -230,5 +231,6 @@ export async function listCommunityMembers(communityId: string): Promise<Communi
     role: r.role,
     joinedAt: new Date(r.joined_at).getTime(),
     displayName: r.profile?.display_name ?? null,
+    handle: r.profile?.handle ?? null,
   }));
 }
