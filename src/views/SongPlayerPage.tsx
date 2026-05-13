@@ -274,7 +274,16 @@ export function SongPlayerPage(p: Props) {
           </div>
           <div className="song-credit">
             {ownerProfile && (ownerProfile.displayName || ownerProfile.handle) && (
-              <span>Added by <strong>{ownerProfile.displayName ?? `@${ownerProfile.handle}`}</strong></span>
+              <span>
+                Added by{' '}
+                {ownerProfile.handle ? (
+                  <a href={routeHref({ name: 'user', handle: ownerProfile.handle })}>
+                    <strong>{ownerProfile.displayName ?? `@${ownerProfile.handle}`}</strong>
+                  </a>
+                ) : (
+                  <strong>{ownerProfile.displayName}</strong>
+                )}
+              </span>
             )}
             {song.updatedAt > 0 && (
               <span title={new Date(song.updatedAt).toLocaleString()}>

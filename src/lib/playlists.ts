@@ -34,6 +34,18 @@ export async function listMyPlaylists(): Promise<Playlist[]> {
   return (data ?? []).map(fromDb);
 }
 
+export async function listPublicPlaylistsByOwner(ownerId: string): Promise<Playlist[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from('playlists')
+    .select('*')
+    .eq('owner_id', ownerId)
+    .eq('is_public', true)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(fromDb);
+}
+
 export async function listCommunityPlaylists(communityId: string): Promise<Playlist[]> {
   const sb = requireSupabase();
   const { data, error } = await sb
