@@ -11,6 +11,8 @@ export type Route =
   | { name: 'import'; from?: string | null }
   | { name: 'edit'; id: string }
   | { name: 'song'; id: string }
+  | { name: 'artist'; slug: string }
+  | { name: 'contributions' }
   | { name: 'profile' };
 
 function parseHash(raw: string): Route {
@@ -21,6 +23,8 @@ function parseHash(raw: string): Route {
   if (h === 'playlists') return { name: 'playlists' };
   if (h === 'communities') return { name: 'communities' };
   if (h === 'profile') return { name: 'profile' };
+  if (h === 'contributions') return { name: 'contributions' };
+  if (h.startsWith('artist/')) return { name: 'artist', slug: decodeURIComponent(h.slice(7)) };
   if (h === 'import') return { name: 'import', from: params.get('from') };
   if (h.startsWith('playlist/'))  return { name: 'playlist',  id: decodeURIComponent(h.slice(9)) };
   if (h.startsWith('community/')) return { name: 'community', slug: decodeURIComponent(h.slice(10)) };
@@ -50,6 +54,8 @@ export function navigate(route: Route): void {
     case 'communities': hash = '#/communities'; break;
     case 'community':   hash = `#/community/${encodeURIComponent(route.slug)}`; break;
     case 'profile':     hash = '#/profile'; break;
+    case 'contributions': hash = '#/contributions'; break;
+    case 'artist':      hash = `#/artist/${encodeURIComponent(route.slug)}`; break;
     case 'join':        hash = `#/join/${encodeURIComponent(route.code)}`; break;
     case 'import':      hash = '#/import' + (route.from ? `?from=${encodeURIComponent(route.from)}` : ''); break;
     case 'edit':        hash = `#/edit/${encodeURIComponent(route.id)}`; break;
@@ -65,4 +71,23 @@ export function navigate(route: Route): void {
 export function navigateBack(fallback: Route = { name: 'browse' }): void {
   if (window.history.length > 1) window.history.back();
   else navigate(fallback);
+}
+
+/** Hash-based href for a Route, suitable for <a href={...}>. */
+export function routeHref(route: Route): string {
+  switch (route.name) {
+    case 'browse':      return '#/browse';
+    case 'library':     return '#/library';
+    case 'playlists':   return '#/playlists';
+    case 'playlist':    return `#/playlist/${encodeURIComponent(route.id)}`;
+    case 'communities': return '#/communities';
+    case 'community':   return `#/community/${encodeURIComponent(route.slug)}`;
+    case 'profile':     return '#/profile';
+    case 'contributions': return '#/contributions';
+    case 'artist':      return `#/artist/${encodeURIComponent(route.slug)}`;
+    case 'join':        return `#/join/${encodeURIComponent(route.code)}`;
+    case 'import':      return '#/import' + (route.from ? `?from=${encodeURIComponent(route.from)}` : '');
+    case 'edit':        return `#/edit/${encodeURIComponent(route.id)}`;
+    case 'song':        return `#/song/${encodeURIComponent(route.id)}`;
+  }
 }

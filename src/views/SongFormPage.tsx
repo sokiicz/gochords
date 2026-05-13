@@ -5,6 +5,8 @@ import { ChordSheet } from '../components/ChordSheet';
 import type { Visibility } from '../lib/supabase';
 import type { Song } from '../lib/songModel';
 import { navigateBack } from '../lib/router';
+import { fetchArtistList } from '../lib/cloudSongs';
+import { cloudEnabled } from '../lib/supabase';
 
 export interface SongFormDraft {
   id?: string;
@@ -46,6 +48,12 @@ interface Props {
 export function SongFormPage({ mode, initial, cloudWritable, onSubmit, onDelete, onCancel }: Props) {
   const [draft, setDraft] = useState<SongFormDraft>(initial ? fromSong(initial) : empty);
   const [showHelp, setShowHelp] = useState(false);
+  const [artistSuggestions, setArtistSuggestions] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!cloudEnabled) return;
+    fetchArtistList().then(setArtistSuggestions).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (initial) setDraft(fromSong(initial));
@@ -112,7 +120,16 @@ export function SongFormPage({ mode, initial, cloudWritable, onSubmit, onDelete,
             </label>
             <label>
               <span>Artist</span>
-              <input value={draft.artist} onChange={(e) => set('artist', e.target.value)} placeholder="e.g. Oasis" />
+              <input
+                value={draft.artist}
+                onChange={(e) => set('artist', e.target.value)}
+                placeholder="e.g. Oasis (or 'Oasis ft. Noel Gallagher')"
+                list="artist-suggestions"
+                autoComplete="off"
+              />
+              <datalist id="artist-suggestions">
+                {artistSuggestions.map((a) => <option key={a} value={a} />)}
+              </datalist>
             </label>
           </div>
 

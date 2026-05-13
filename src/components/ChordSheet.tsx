@@ -1,5 +1,22 @@
-import { memo } from 'react';
+import { memo, Fragment } from 'react';
 import type { Song } from '../lib/parser';
+
+const NOTE_RE = /\*([^*\n]+)\*/g;
+
+function renderLyric(text: string): React.ReactNode {
+  if (!text || !text.includes('*')) return text || ' ';
+  const parts: React.ReactNode[] = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+  NOTE_RE.lastIndex = 0;
+  while ((m = NOTE_RE.exec(text)) !== null) {
+    if (m.index > last) parts.push(text.slice(last, m.index));
+    parts.push(<em key={m.index} className="lyric-note">{m[1]}</em>);
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return parts.map((p, i) => <Fragment key={i}>{p}</Fragment>);
+}
 
 interface Props {
   song: Song;
@@ -50,7 +67,7 @@ function ChordSheetImpl({ song, onChordClick }: Props) {
                       )}
                       {u.annot && <span className="unit-annot">{u.annot}</span>}
                     </span>
-                    {!line.chordOnly && <span className="unit-lyric">{u.lyric || ' '}</span>}
+                    {!line.chordOnly && <span className="unit-lyric">{renderLyric(u.lyric)}</span>}
                   </span>
                 ))}
               </div>

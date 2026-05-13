@@ -1,17 +1,19 @@
 import { useEffect, useRef } from 'react';
 import { drawChordDiagram, hasDiagram, type Instrument, type DiagramTheme } from '../lib/chords';
+import type { DiagramSize } from '../lib/storage';
 
 interface Props {
   chords: string[];
   instrument: Instrument;
   darkMode: boolean;
+  size?: DiagramSize;
   onChordClick: (chord: string) => void;
 }
 
-export function UsedChordsStrip({ chords, instrument, darkMode, onChordClick }: Props) {
+export function UsedChordsStrip({ chords, instrument, darkMode, size = 'md', onChordClick }: Props) {
   if (chords.length === 0) return null;
   return (
-    <div className="chords-strip" role="region" aria-label="Chords used in this song">
+    <div className={`chords-strip chords-strip-${size}`} role="region" aria-label="Chords used in this song">
       <div className="chords-strip-inner">
         {chords.map((c) => (
           <ChordTile

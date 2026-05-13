@@ -1,4 +1,4 @@
-import { navigate, type Route } from '../lib/router';
+import { navigate, routeHref, type Route } from '../lib/router';
 import { Icon } from './Icon';
 import { AuthMenu } from './AuthMenu';
 
@@ -12,40 +12,82 @@ interface Props {
   onSignInRequest: () => void;
 }
 
+function NavLink({
+  to,
+  active,
+  onClose,
+  children,
+}: {
+  to: Route;
+  active: boolean;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  const href = routeHref(to);
+  return (
+    <a
+      className={`nav-link ${active ? 'nav-link-active' : ''}`}
+      href={href}
+      onClick={(e) => {
+        // Let plain clicks update via hashchange; suppress for modifier-clicks (new tab etc.).
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+        e.preventDefault();
+        navigate(to);
+        onClose();
+      }}
+    >
+      {children}
+    </a>
+  );
+}
+
 export function NavSidebar({ route, cloudEnabled, signedIn, open, onClose, onImport, onSignInRequest }: Props) {
-  const go = (r: Route) => { navigate(r); onClose(); };
   const is = (n: Route['name']) => route.name === n;
 
   return (
     <>
       {open && <div className="nav-backdrop" onClick={onClose} />}
       <aside className={`nav-sidebar ${open ? 'nav-sidebar-open' : ''}`}>
-        <div className="nav-brand">
+        <a
+          className="nav-brand"
+          href={routeHref({ name: 'browse' })}
+          onClick={(e) => {
+            if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+            e.preventDefault();
+            navigate({ name: 'browse' });
+            onClose();
+          }}
+          aria-label="GoChords home"
+        >
           <span className="brand-mark">♪</span>
           <span className="brand-text">GoChords</span>
-        </div>
+        </a>
 
         <nav className="nav-list">
           <div className="nav-section">Browse</div>
-          <button className={`nav-link ${is('browse') ? 'nav-link-active' : ''}`} onClick={() => go({ name: 'browse' })}>
+          <NavLink to={{ name: 'browse' }} active={is('browse') || is('artist')} onClose={onClose}>
             <Icon name="star" size={16} />
             <span>Catalog</span>
-          </button>
-          <button className={`nav-link ${is('communities') ? 'nav-link-active' : ''}`} onClick={() => go({ name: 'communities' })}>
+          </NavLink>
+          <NavLink to={{ name: 'communities' }} active={is('communities') || is('community')} onClose={onClose}>
             <Icon name="users" size={16} />
             <span>Communities</span>
-          </button>
+          </NavLink>
 
           <div className="nav-section">Your stuff</div>
-          <button className={`nav-link ${is('library') ? 'nav-link-active' : ''}`} onClick={() => go({ name: 'library' })}>
+          <NavLink to={{ name: 'library' }} active={is('library')} onClose={onClose}>
             <Icon name="heart" size={16} />
             <span>My Library</span>
-          </button>
-          <button className={`nav-link ${is('playlists') || is('playlist') ? 'nav-link-active' : ''}`} onClick={() => go({ name: 'playlists' })}>
+          </NavLink>
+          <NavLink to={{ name: 'playlists' }} active={is('playlists') || is('playlist')} onClose={onClose}>
             <Icon name="list" size={16} />
             <span>Playlists</span>
             {!signedIn && cloudEnabled && <span className="nav-lock">·</span>}
-          </button>
+          </NavLink>
+          <NavLink to={{ name: 'contributions' }} active={is('contributions')} onClose={onClose}>
+            <Icon name="edit" size={16} />
+            <span>My Contributions</span>
+          </NavLink>
         </nav>
 
         <button className="nav-import" onClick={onImport}>

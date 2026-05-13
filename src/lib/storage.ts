@@ -27,11 +27,14 @@ const PREFS_KEY = 'gochords:prefs:v1';
 const SEEDED_KEY = 'gochords:seeded:v1';
 const SONG_STATE_KEY = 'gochords:songstate:v1';
 
+export type DiagramSize = 'sm' | 'md' | 'lg';
+
 export interface Prefs {
   darkMode: boolean;
   fontSize: 0 | 1 | 2;
   scrollSpeed: number;
   instrument: Instrument;
+  diagramSize: DiagramSize;
 }
 
 const DEFAULT_PREFS: Prefs = {
@@ -39,6 +42,7 @@ const DEFAULT_PREFS: Prefs = {
   fontSize: 1,
   scrollSpeed: 4,
   instrument: 'guitar',
+  diagramSize: 'md',
 };
 
 const MIGRATION_KEY = 'gochords:migrated:v2';
