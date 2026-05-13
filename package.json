@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "audit": "tsx scripts/audit-chords.ts",
+    "audit:legacy-capo": "tsx scripts/audit-legacy-capo.ts",
     "test": "tsx scripts/test-parser.ts && tsx scripts/test-transpose.ts && tsx scripts/test-search.ts",
     "backfill:languages": "tsx scripts/backfill-languages.ts"
   },
