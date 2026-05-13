@@ -7,6 +7,7 @@ import type { Song } from '../lib/songModel';
 import { navigateBack } from '../lib/router';
 import { fetchArtistList } from '../lib/cloudSongs';
 import { cloudEnabled } from '../lib/supabase';
+import { detectLanguage } from '../lib/language';
 
 export interface SongFormDraft {
   id?: string;
@@ -54,6 +55,20 @@ export function SongFormPage({ mode, initial, cloudWritable, onSubmit, onDelete,
     if (!cloudEnabled) return;
     fetchArtistList().then(setArtistSuggestions).catch(() => {});
   }, []);
+
+  const detectedLang = useMemo(() => detectLanguage(draft.source), [draft.source]);
+  const currentTags = useMemo(
+    () => draft.tags.split(',').map((t) => t.trim().toLowerCase()).filter(Boolean),
+    [draft.tags],
+  );
+  const langSuggestionVisible =
+    !!detectedLang && !currentTags.includes(detectedLang) && !currentTags.some((t) => /^(cs|sk|en|es|de|pl|cestina|english|spanish|german|polski)$/.test(t));
+
+  const acceptLanguageTag = () => {
+    if (!detectedLang) return;
+    const next = currentTags.includes(detectedLang) ? currentTags : [...currentTags, detectedLang];
+    set('tags', next.join(', '));
+  };
 
   useEffect(() => {
     if (initial) setDraft(fromSong(initial));
@@ -155,6 +170,11 @@ export function SongFormPage({ mode, initial, cloudWritable, onSubmit, onDelete,
           <label>
             <span>Tags <em className="hint-em">(comma separated)</em></span>
             <input value={draft.tags} onChange={(e) => set('tags', e.target.value)} placeholder="e.g. rock, 90s, easy" />
+            {langSuggestionVisible && (
+              <button type="button" className="lang-suggest" onClick={acceptLanguageTag}>
+                Add language tag <strong>{detectedLang}</strong>
+              </button>
+            )}
           </label>
 
           <label className={sourceErr ? 'has-err' : ''}>

@@ -1,38 +1,32 @@
 # Deferred items
 
-Three asks from the original bug list weren't shipped in batch 3. Each is a feature, not a fix, and each genuinely needs more design work or external infrastructure than a polish pass justifies.
+Of the three originally deferred items, two shipped in batch 5 with the explicit scope tradeoffs documented below. UG-URL scraping remains the one genuine deferral.
 
-## Strumming patterns
+## Strumming patterns — shipped in batch 5
 
-What the user wants: render strumming notation (down/up arrows, percussive X, accent dots) next to chord rows.
+The parser now recognizes:
+- Lines starting with `Strum:` / `Pattern:` / `Rytmus:` (case-insensitive)
+- Or any line that is *only* strum glyphs and has ≥3 strokes (so a lone `D` is still treated as a chord)
 
-What's needed:
-- A source-format decision. ChordPro doesn't standardize this. We could invent (e.g. `[D D U U D]` on its own line) or import from one of the popular tab-site conventions (UG uses ASCII glyphs like `D D U D U D D`).
-- A renderer — probably an SVG row of arrow glyphs aligned to beat positions.
-- A way to associate a pattern with a section: per-section `[Strum: D D U U D]` line, or a global default.
+Glyph alphabet: `D`/`↓` = downstroke, `U`/`↑` = upstroke, `X`/`x` = muted, `.`/`·`/`-` = rest, `|`/`/` = beat separator.
 
-Out of scope here because the format choice locks in the data model and once shipped is hard to migrate.
+Rendered as a styled inline row (`.sheet-strum`) — accent-colored arrows for strokes, dim for rests, monospace.
 
-## Auto-language tags
+## Auto-language tag — shipped in batch 5
 
-What the user wants: automatic `cz` / `en` / `es` tags inferred from lyrics.
+Heuristic detector (`src/lib/language.ts`) covering `cs`, `sk`, `en`, `es`, `de`, `pl`. Scores against compact stopword lists plus diacritic signatures (e.g. one `ř` makes Czech nearly certain). Requires a clear winner — won't suggest if signal is ambiguous.
 
-What's needed:
-- A language detector that works on short, fragmented text (lyrics break Markov / n-gram detectors). Options: `franc` (~30 kB minified, supports 200+ languages), `cld3-asm` (Google's, WASM ~1 MB), or a hand-rolled "diacritic + common-word" heuristic for the 4–5 languages this catalog will likely have.
-- A point in the write pipeline (`insertSong` / `updateSong`) where the detection runs and merges into `tags`.
-- A way to override (the detector is probabilistic — if the user typed it, respect it).
+Surfaced as a one-tap "Add language tag {cs}" pill under the Tags input in the song form. Never auto-applies; the user opts in.
 
-Out of scope here because adding a ~30 kB always-on dependency for tags is a deal we'd want to make deliberately, not as part of a UI-fix batch.
+No new dependency — runs in ~1 ms on a typical lyric.
 
-## Ultimate Guitar / arbitrary chord-URL import
+## Ultimate Guitar — partially shipped, full URL import still deferred
 
-What the user wants: paste a UG link, get the song imported.
+**What works now:** if you paste UG's actual chord-block markup (`[ch]Em[/ch] [ch]D[/ch] ...`), the parser's `preprocessSource()` rewrites it to `[Em] [D] ...` and the rest of the pipeline handles it as native inline-chord text. Also handles ChordPro `{c:Em}` for free. This covers the typical "copy from UG, paste into our form" flow.
 
-What's needed:
-- UG doesn't expose a public chord API and serves chord sheets via a React app with anti-scraping protections. Browser-side fetch is blocked by CORS; even a server-side scrape risks ToS breach and brittle selectors.
-- Realistic path: a serverless function (Supabase Edge Function or similar) that scrapes the rendered HTML, extracts the chord block, and returns a structured `SongDraft`. Need per-site adapters (UG, Songsterr, chordie.com, e-chords).
-- Plus rate limiting + caching so UG doesn't blacklist the IP.
+**What is still deferred:** "paste a URL and pull the song." This needs:
+- A serverless function that fetches the rendered UG page (browser fetch is CORS-blocked, public CORS proxies are unreliable for production).
+- Per-site adapters (UG's React app serializes the chord block into a JSON blob in a `<script>`; Songsterr / e-chords / chordie each have their own DOM).
+- Rate limiting + caching so the source site doesn't ban the IP.
 
-Out of scope here because shipping a scraper has legal/operational cost that wants its own conversation, not a parser-fix branch.
-
-A pragmatic in-between: a "paste raw text" import which is already there. Encourage users to copy the chord block from any site and paste — the parser handles ChordPro brackets, aligned chords-over-lyrics, and tab blocks.
+Realistic future path: a Supabase Edge Function that takes `{ url }`, fetches it server-side, returns a structured `SongDraft`. ~1–2 days of work, plus monitoring for selector drift. Not happening in a UI-fix batch.
