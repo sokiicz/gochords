@@ -1,5 +1,6 @@
 // Sanity tests for parser.ts. Run: npm test
-import { isChordToken, parse, uniqueChords } from '../src/lib/parser';
+import { isChordToken, parse, preprocessSource, uniqueChords } from '../src/lib/parser';
+import { detectLanguage } from '../src/lib/language';
 
 let pass = 0;
 let fail = 0;
@@ -132,6 +133,76 @@ const no = (t: string) => check(`not chord '${t}'`, isChordToken(t), false);
     check('paren repeat annot', line.units[3]?.annot, '(x2)');
   }
 }
+
+// --- UG paste format preprocessing ---
+check(
+  'preprocessSource: UG [ch]Em[/ch]',
+  preprocessSource('[ch]Em[/ch] [ch]D[/ch] hello'),
+  '[Em] [D] hello',
+);
+check(
+  'parse: UG-pasted line parses chords inline',
+  (() => {
+    const song = parse('[ch]Am[/ch]Hello [ch]F[/ch]world');
+    const line = song.sections[0]?.lines[0];
+    return line?.kind === 'chord' ? line.units.map((u) => u.chord) : [];
+  })(),
+  ['Am', 'F'],
+);
+
+// --- strum line ---
+{
+  const song = parse('Strum: D D U U D U\n[Am]Hello [F]world');
+  const strum = song.sections[0]?.lines[0];
+  check(
+    'strum: detected',
+    strum?.kind,
+    'strum',
+  );
+  if (strum?.kind === 'strum') {
+    check('strum: token count', strum.tokens.length, 6);
+    check('strum: first is down', strum.tokens[0].kind, 'down');
+    check('strum: third is up', strum.tokens[2].kind, 'up');
+  }
+  const next = song.sections[0]?.lines[1];
+  check('strum: chord line still parses after', next?.kind, 'chord');
+}
+
+{
+  // Without prefix but plenty of strokes
+  const song = parse('D D U D D U U D');
+  const line = song.sections[0]?.lines[0];
+  check('strum: prefix-less ≥3 strokes detected', line?.kind, 'strum');
+}
+
+{
+  // A single "D" alone must NOT be a strum row
+  const song = parse('D');
+  const line = song.sections[0]?.lines[0];
+  check('strum: lone D is chord-row, not strum', line?.kind, 'chord');
+}
+
+// --- language detection ---
+check(
+  'lang: clearly English',
+  detectLanguage('Today is the day that I will be with you and we know it all the time you are the one for me'),
+  'en',
+);
+check(
+  'lang: clearly Czech (ř + stoplist hits)',
+  detectLanguage('Dnes je ten den kdy se vrátím k tobě jak jsem už slíbil tak musím přijít domů zase'),
+  'cs',
+);
+check(
+  'lang: too short → null',
+  detectLanguage('hey ya'),
+  null,
+);
+check(
+  'lang: nonsense → null',
+  detectLanguage('zxqv mnbg pwop quzr xkrv vmnb pqzr xqvm krwt'),
+  null,
+);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);

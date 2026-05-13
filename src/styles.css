@@ -2099,6 +2099,39 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
 .icon-btn-on { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
 .icon-btn-on:hover { background: var(--accent-soft); }
 
+/* Strumming pattern row */
+.sheet-strum {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 1.05em;
+  color: var(--text-soft);
+  margin: 4px 0 6px;
+  letter-spacing: 0.04em;
+}
+.sheet-strum .strum-down,
+.sheet-strum .strum-up { color: var(--accent); font-weight: 600; }
+.sheet-strum .strum-mute { color: var(--text-faint); }
+.sheet-strum .strum-rest { color: var(--text-faint); opacity: 0.6; }
+.sheet-strum .strum-sep { color: var(--text-dim); margin: 0 4px; }
+
+/* Language-tag suggestion under the tags input */
+.lang-suggest {
+  margin-top: 6px;
+  align-self: flex-start;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: var(--t-xs);
+  cursor: pointer;
+}
+.lang-suggest:hover { border-color: var(--accent); }
+.lang-suggest strong { font-weight: 700; margin-left: 4px; text-transform: uppercase; }
+
 /* Sticky chord strip — pinned beneath the controls during scroll */
 .chords-strip-sticky {
   position: sticky;

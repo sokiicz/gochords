@@ -1,7 +1,15 @@
 export type Unit = { chord: string | null; lyric: string; annot?: string };
 export type ChordLine = { kind: 'chord'; units: Unit[]; chordOnly?: boolean };
 export type TabLine = { kind: 'tab'; rows: string[] };
-export type Line = ChordLine | TabLine;
+export type StrumLine = { kind: 'strum'; tokens: StrumToken[] };
+export type StrumToken =
+  | { kind: 'down' }
+  | { kind: 'up' }
+  | { kind: 'mute' }
+  | { kind: 'rest' }
+  | { kind: 'sep' }
+  | { kind: 'text'; value: string };
+export type Line = ChordLine | TabLine | StrumLine;
 export type Section = { label: string | null; annotation?: string | null; lines: Line[] };
 export type Song = { sections: Section[] };
 
@@ -25,6 +33,8 @@ const BARE_SECTION_RE =
   /^\s*(intro|outro|verse|chorus|pre[\s-]?chorus|bridge|interlude|solo|coda|tag|refrain|hook|breakdown|instrumental|riff)(\s*\d+)?\s*:?\s*(\([^)]*\))?\s*$/i;
 const SECTION_LABEL_RE = /^\s*\[([^\]]+)\]\s*(.*)$/;
 const INLINE_CHORD_RE = /\[([^\]]+)\]|\{([^}]+)\}|\(([^)]+)\)/g;
+const STRUM_PREFIX_RE = /^\s*(?:strum|pattern|rytmus)\s*:?\s*/i;
+const STRUM_BODY_RE = /^[\s↓↑DUduXxNn.\-|·\/]+$/;
 
 export function isChordToken(s: string): boolean {
   const t = s.trim();
@@ -53,6 +63,28 @@ function tokenizeChordRow(line: string): string[] {
   return line.split(/[\s|]+/).filter((t) => t.length > 0);
 }
 
+function parseStrumLine(line: string): StrumLine | null {
+  const body = line.replace(STRUM_PREFIX_RE, '');
+  const hadPrefix = body !== line;
+  if (!hadPrefix && !STRUM_BODY_RE.test(body)) return null;
+  if (!STRUM_BODY_RE.test(body)) return null;
+  const tokens: StrumToken[] = [];
+  for (const ch of body) {
+    if (ch === '↓' || ch === 'D' || ch === 'd') tokens.push({ kind: 'down' });
+    else if (ch === '↑' || ch === 'U' || ch === 'u') tokens.push({ kind: 'up' });
+    else if (ch === 'X' || ch === 'x') tokens.push({ kind: 'mute' });
+    else if (ch === '.' || ch === '·' || ch === '-') tokens.push({ kind: 'rest' });
+    else if (ch === '|' || ch === '/') tokens.push({ kind: 'sep' });
+    // whitespace just acts as visual separation between tokens
+  }
+  if (tokens.length === 0) return null;
+  // Require either an explicit prefix OR ≥3 stroke tokens to avoid catching plain text
+  // accidentally (a "D" by itself shouldn't become a strum row).
+  const strokes = tokens.filter((t) => t.kind === 'down' || t.kind === 'up' || t.kind === 'mute').length;
+  if (!hadPrefix && strokes < 3) return null;
+  return { kind: 'strum', tokens };
+}
+
 export function isTabRow(line: string): boolean {
   const trimmed = line.replace(/^\s+/, '');
   if (trimmed.length < 4) return false;
@@ -63,8 +95,18 @@ export function isTabRow(line: string): boolean {
   return tabChars / body.length > 0.85 && /-/.test(body);
 }
 
+/** Convert non-native chord-sheet conventions to our inline format before parsing.
+ *  - Ultimate Guitar: [ch]Em[/ch] → [Em]
+ *  - Chordpro: {c:Em} → [Em] (rare but cheap to support)
+ */
+export function preprocessSource(input: string): string {
+  return input
+    .replace(/\[ch\]([^\]]+)\[\/ch\]/gi, (_m, c) => `[${c.trim()}]`)
+    .replace(/\{c:\s*([^}]+)\}/gi, (_m, c) => `[${c.trim()}]`);
+}
+
 export function parse(input: string): Song {
-  const rawLines = input.replace(/\r\n/g, '\n').split('\n');
+  const rawLines = preprocessSource(input).replace(/\r\n/g, '\n').split('\n');
   const sections: Section[] = [];
   let current: Section = { label: null, annotation: null, lines: [] };
   sections.push(current);
@@ -116,6 +158,13 @@ export function parse(input: string): Song {
         i++;
       }
       current.lines.push({ kind: 'tab', rows });
+      continue;
+    }
+
+    const strum = parseStrumLine(line);
+    if (strum) {
+      current.lines.push(strum);
+      i++;
       continue;
     }
 

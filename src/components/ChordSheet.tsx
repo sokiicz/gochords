@@ -44,6 +44,17 @@ function ChordSheetImpl({ song, onChordClick }: Props) {
                 </pre>
               );
             }
+            if (line.kind === 'strum') {
+              return (
+                <div key={li} className="sheet-strum" aria-label="Strumming pattern">
+                  {line.tokens.map((t, ti) => (
+                    <span key={ti} className={`strum-${t.kind}`}>
+                      {t.kind === 'down' ? '↓' : t.kind === 'up' ? '↑' : t.kind === 'mute' ? '×' : t.kind === 'rest' ? '·' : t.kind === 'sep' ? '|' : ''}
+                    </span>
+                  ))}
+                </div>
+              );
+            }
             const isBlank =
               line.units.length === 1 && line.units[0].chord === null && line.units[0].lyric === '';
             if (isBlank) return <div key={li} className="sheet-line sheet-line-blank" />;

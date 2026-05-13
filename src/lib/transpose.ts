@@ -100,6 +100,7 @@ export function transposeSong(
         if (l.kind === 'tab') {
           return { kind: 'tab', rows: l.rows.map((r) => transposeTabRow(r, shift)) };
         }
+        if (l.kind === 'strum') return l;
         return {
           kind: 'chord',
           chordOnly: l.chordOnly,
@@ -130,7 +131,7 @@ export function simplifySong(song: Song): Song {
       label: s.label,
       annotation: s.annotation,
       lines: s.lines.map<Line>((l) => {
-        if (l.kind === 'tab') return l;
+        if (l.kind === 'tab' || l.kind === 'strum') return l;
         return {
           kind: 'chord',
           chordOnly: l.chordOnly,
