@@ -3,6 +3,7 @@ import { fetchUpdates, type UpdateEvent } from '../lib/profile';
 import { cloudEnabled } from '../lib/supabase';
 import { navigate, routeHref } from '../lib/router';
 import { Icon } from '../components/Icon';
+import { markUpdatesSeen } from '../lib/notifications';
 
 interface Props {
   signedIn: boolean;
@@ -19,7 +20,13 @@ export function UpdatesPage({ signedIn, onSignInClick }: Props) {
     let cancelled = false;
     setLoading(true);
     fetchUpdates()
-      .then((e) => { if (!cancelled) { setEvents(e); setLoading(false); } })
+      .then((e) => {
+        if (cancelled) return;
+        setEvents(e);
+        setLoading(false);
+        // Mark seen after we have the latest list so the badge clears immediately.
+        markUpdatesSeen();
+      })
       .catch((e) => { if (!cancelled) { setErr(e.message); setLoading(false); } });
     return () => { cancelled = true; };
   }, [signedIn]);

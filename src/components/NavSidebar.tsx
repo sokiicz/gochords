@@ -1,6 +1,7 @@
 import { navigate, routeHref, type Route } from '../lib/router';
 import { Icon } from './Icon';
 import { AuthMenu } from './AuthMenu';
+import { useUnreadUpdatesCount } from '../lib/notifications';
 
 interface Props {
   route: Route;
@@ -43,6 +44,7 @@ function NavLink({
 
 export function NavSidebar({ route, cloudEnabled, signedIn, open, onClose, onImport, onSignInRequest }: Props) {
   const is = (n: Route['name']) => route.name === n;
+  const unread = useUnreadUpdatesCount(signedIn && cloudEnabled);
 
   return (
     <>
@@ -85,8 +87,9 @@ export function NavSidebar({ route, cloudEnabled, signedIn, open, onClose, onImp
             {!signedIn && cloudEnabled && <span className="nav-lock">·</span>}
           </NavLink>
           <NavLink to={{ name: 'updates' }} active={is('updates')} onClose={onClose}>
-            <Icon name="heart" size={16} />
+            <Icon name="bell" size={16} />
             <span>Updates</span>
+            {unread > 0 && <span className="nav-badge" aria-label={`${unread} new`}>{unread > 9 ? '9+' : unread}</span>}
           </NavLink>
           <NavLink to={{ name: 'contributions' }} active={is('contributions')} onClose={onClose}>
             <Icon name="edit" size={16} />

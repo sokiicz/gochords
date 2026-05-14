@@ -1,6 +1,7 @@
 // Sanity tests for parser.ts. Run: npm test
 import { isChordToken, parse, preprocessSource, uniqueChords } from '../src/lib/parser';
-import { detectLanguage } from '../src/lib/language';
+import { detectLanguage, mergeLanguageTag, pickLanguageTag } from '../src/lib/language';
+import { chordStats } from '../src/lib/difficulty';
 
 let pass = 0;
 let fail = 0;
@@ -226,6 +227,118 @@ check(
   detectLanguage('zxqv mnbg pwop quzr xkrv vmnb pqzr xqvm krwt'),
   null,
 );
+
+// Italian (added 2026-05-13)
+check(
+  'lang: clearly Italian',
+  detectLanguage('Io ti amo come il sole quando sorge sul mare e il mio cuore è già con te per sempre più'),
+  'it',
+);
+
+// --- pickLanguageTag / mergeLanguageTag ---
+check('pick: empty list → null', pickLanguageTag([]), null);
+check('pick: finds tag (case-insensitive)', pickLanguageTag(['rock', 'EN']), 'en');
+check('pick: ignores unrelated tag', pickLanguageTag(['acoustic', 'live']), null);
+check('merge: no detection → unchanged', mergeLanguageTag(['rock'], null), ['rock']);
+check('merge: appends detection when missing', mergeLanguageTag(['rock'], 'cs'), ['rock', 'cs']);
+check('merge: keeps existing tag', mergeLanguageTag(['rock', 'en'], 'cs'), ['rock', 'en']);
+
+// --- UG preprocessing edge cases ---
+check(
+  'preprocessSource: UG empty body []',
+  preprocessSource('[ch][/ch] hello'),
+  '[ch][/ch] hello',
+);
+check(
+  'preprocessSource: UG slash chord',
+  preprocessSource('[ch]D/F#[/ch]'),
+  '[D/F#]',
+);
+check(
+  'preprocessSource: multiple UG tags inline',
+  preprocessSource('[ch]Am[/ch]Hello [ch]F[/ch]world [ch]C[/ch]again'),
+  '[Am]Hello [F]world [C]again',
+);
+check(
+  'preprocessSource: no-op on plain text',
+  preprocessSource('plain text with no chords'),
+  'plain text with no chords',
+);
+check(
+  'preprocessSource: ChordPro {c:Em} → [Em]',
+  preprocessSource('{c:Em} hello'),
+  '[Em] hello',
+);
+
+// --- strum heuristic: more false-positive guards ---
+{
+  // Repeated same uppercase chord letters must not become strum
+  const song = parse('A A A A');
+  const line = song.sections[0]?.lines[0];
+  check('strum: A A A A stays chord', line?.kind, 'chord');
+}
+{
+  // Mixed D and U with three strokes total triggers strum (real rhythm cue)
+  const song = parse('D U D');
+  const line = song.sections[0]?.lines[0];
+  check('strum: D U D detected as strum (mixed)', line?.kind, 'strum');
+}
+{
+  // X (palm-mute) cue mixed with D triggers strum
+  const song = parse('D D X D D X');
+  const line = song.sections[0]?.lines[0];
+  check('strum: X mute detected as strum', line?.kind, 'strum');
+}
+{
+  // Explicit "Strum:" prefix forces it even on a single D
+  const song = parse('Strum: D');
+  const line = song.sections[0]?.lines[0];
+  check('strum: explicit prefix forces strum', line?.kind, 'strum');
+}
+
+// --- uniqueChords with duplicate + N.C. mixing ---
+{
+  const song = parse('Em D Em D G D Em\nN.C. Em D');
+  check(
+    'uniqueChords: dedupes + drops N.C.',
+    uniqueChords(song),
+    ['Em', 'D', 'G'],
+  );
+}
+
+// --- chordStats (difficulty.ts) ---
+check('stats: empty', chordStats({ source: '' }), { unique: 0, barre: 0, extended: 0 });
+check(
+  'stats: simple G/D/C — no barre, no extended',
+  chordStats({ source: 'G D C\nLine of lyrics' }),
+  { unique: 3, barre: 0, extended: 0 },
+);
+check(
+  'stats: F + Bm count as barre-typical',
+  chordStats({ source: 'F Bm C G' }),
+  { unique: 4, barre: 2, extended: 0 },
+);
+check(
+  'stats: Cmaj7 + G7sus4 count as extended',
+  chordStats({ source: 'Cmaj7 G7sus4 Am F' }),
+  { unique: 4, barre: 1, extended: 2 },
+);
+check(
+  'stats: slash chord roots considered for barre',
+  chordStats({ source: 'F/A Bb/D C G' }),
+  { unique: 4, barre: 2, extended: 0 },
+);
+
+// --- inline ChordPro parse round-trip ---
+{
+  const song = parse(preprocessSource('{c:Am} Hello {c:F} world'));
+  const line = song.sections[0]?.lines[0];
+  if (line?.kind === 'chord') {
+    check('ChordPro round-trip chords', line.units.map((u) => u.chord), ['Am', 'F']);
+  } else {
+    check('ChordPro round-trip line exists', false, true);
+  }
+}
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);

@@ -82,6 +82,15 @@ export function navigateBack(fallback: Route = { name: 'browse' }): void {
   else navigate(fallback);
 }
 
+/**
+ * Read query params from the current hash (e.g. `#/song/abc?t=2&c=1`).
+ * Returns an empty URLSearchParams when there is no query portion.
+ */
+export function parseHashQuery(): URLSearchParams {
+  const raw = typeof window === 'undefined' ? '' : window.location.hash;
+  return new URLSearchParams(raw.split('?')[1] || '');
+}
+
 /** Hash-based href for a Route, suitable for <a href={...}>. */
 export function routeHref(route: Route): string {
   switch (route.name) {
