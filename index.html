@@ -16,6 +16,30 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
     <title>GoChords — Chord sheets in your browser</title>
+    <script>
+      // Path-to-hash bridge for SPA deep links on GitHub Pages.
+      // Inputs the path-and-query-and-hash variations a crawler or shared link
+      // can produce, outputs a normalised `/#/<path>?<query>` the hash router
+      // understands. Runs synchronously before the app boots.
+      //
+      //   /song/abc           → /#/song/abc
+      //   /song/abc?t=2       → /#/song/abc?t=2     (query MUST live inside hash)
+      //   /song/abc#/song/abc → /#/song/abc         (already-rewritten reload)
+      //   /                   → no-op
+      (function () {
+        var p = window.location.pathname;
+        if (p === '/' || /\.html$/.test(p)) return;
+        var search = window.location.search;     // includes leading '?', or ''
+        var hash = window.location.hash;         // includes leading '#', or ''
+        // Build the canonical "in-hash" query+path. If the hash already
+        // contains the path (reload case), trust it; otherwise inject the
+        // pathname AND any ?query that arrived in the URL bar.
+        var newHash = hash
+          ? hash
+          : '#' + p + search;
+        window.history.replaceState(null, '', '/' + newHash);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -17,6 +17,7 @@ import { navigate } from '../lib/router';
 import { SongCard } from '../components/SongCard';
 import { SkeletonGrid } from '../components/Skeleton';
 import { Icon } from '../components/Icon';
+import { MetaTags, userProfileMeta } from '../components/MetaTags';
 
 interface Props {
   handle: string;
@@ -130,6 +131,7 @@ export function UserProfilePage({ handle, signedIn, userId, onRequireSignIn, onT
 
   return (
     <div className="page">
+      <MetaTags {...userProfileMeta(profile?.handle ?? handle, profile?.displayName)} />
       <div className="user-profile-header">
         <div className="user-profile-avatar" aria-hidden>
           {(profile?.displayName ?? handle).trim()[0]?.toUpperCase() ?? '?'}

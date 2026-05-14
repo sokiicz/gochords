@@ -23,3 +23,6 @@ OPERATIONS.md
 
 # Claude Code local settings.
 .claude/
+
+# Generated at build time by scripts/generate-sitemap.ts
+public/sitemap.xml

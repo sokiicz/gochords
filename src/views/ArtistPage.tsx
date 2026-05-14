@@ -7,6 +7,7 @@ import { allArtists, slugify } from '../lib/search';
 import { fetchMyLikedSongIds, likeSong, unlikeSong } from '../lib/likes';
 import { SongCard } from '../components/SongCard';
 import { SkeletonGrid } from '../components/Skeleton';
+import { MetaTags, artistMeta } from '../components/MetaTags';
 
 interface Props {
   slug: string;
@@ -76,6 +77,7 @@ export function ArtistPage({ slug, signedIn, onRequireSignIn, onToast }: Props) 
 
   return (
     <div className="page">
+      <MetaTags {...artistMeta(canonicalName, slug)} />
       <div className="page-header">
         <div>
           <button className="ghost-btn back-btn" onClick={() => history.back()}>← Back</button>

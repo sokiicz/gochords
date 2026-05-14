@@ -10,20 +10,8 @@
  * here, which avoids the Node-20-no-WebSocket realtime init issue and keeps the
  * script's surface tiny).
  */
-import { readFileSync } from 'node:fs';
 import { detectLanguage, mergeLanguageTag, pickLanguageTag } from '../src/lib/language';
-
-const SECRETS_PATH = 'D:/ai/Apps/Secrets/gochords.txt';
-
-function loadSecrets(): Record<string, string> {
-  const raw = readFileSync(SECRETS_PATH, 'utf8');
-  const out: Record<string, string> = {};
-  for (const line of raw.split(/\r?\n/)) {
-    const m = line.match(/^([A-Z_]+)\s*=\s*(.+)$/);
-    if (m) out[m[1]] = m[2].trim();
-  }
-  return out;
-}
+import { loadSupabaseCreds } from './_supabase-env';
 
 interface SongRow {
   id: string;
@@ -36,17 +24,15 @@ interface SongRow {
 
 async function main() {
   const dry = process.argv.includes('--dry');
-  const secrets = loadSecrets();
-  const url = secrets.SUPABASE_URL;
-  const key = secrets.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error('Missing SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY in secrets file.');
+  const creds = loadSupabaseCreds({ requireServiceRole: true });
+  if (!creds) throw new Error('Missing SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY (writes need service role).');
 
   const headers = {
-    apikey: key,
-    Authorization: `Bearer ${key}`,
+    apikey: creds.key,
+    Authorization: `Bearer ${creds.key}`,
     'Content-Type': 'application/json',
   };
-  const restUrl = (path: string) => `${url}/rest/v1/${path}`;
+  const restUrl = (path: string) => `${creds.url}/rest/v1/${path}`;
 
   const PAGE = 500;
   let offset = 0;
