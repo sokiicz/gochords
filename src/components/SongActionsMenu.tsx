@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Song } from '../lib/songModel';
-import { listMyPlaylists, createPlaylist, addSongToPlaylist, type Playlist } from '../lib/playlists';
+import { listMyPlaylists, createPlaylist, addSongToPlaylist, type Playlist, type PlaylistSongState } from '../lib/playlists';
 import {
   listMyCommunities,
   listOpenCommunities,
@@ -19,11 +19,13 @@ interface Props {
   onDone?: (msg?: string) => void;
   /** Compact icon-only render (for cards). Otherwise shows heart + label. */
   compact?: boolean;
+  /** When set, Add-to-playlist persists the current player settings as the preset. */
+  playerState?: PlaylistSongState;
 }
 
 type Submenu = null | 'playlist' | 'community';
 
-export function SongActionsMenu({ song, signedIn, liked, onToggleLike, onRequireSignIn, onDone, compact }: Props) {
+export function SongActionsMenu({ song, signedIn, liked, onToggleLike, onRequireSignIn, onDone, compact, playerState }: Props) {
   const [open, setOpen] = useState(false);
   const [sub, setSub] = useState<Submenu>(null);
   const [playlists, setPlaylists] = useState<Playlist[] | null>(null);
@@ -83,8 +85,11 @@ export function SongActionsMenu({ song, signedIn, liked, onToggleLike, onRequire
     }
     setBusy(true);
     try {
-      await addSongToPlaylist(pl.id, song.id);
-      onDone?.(`Added to "${pl.name}"`);
+      await addSongToPlaylist(pl.id, song.id, playerState ?? {});
+      const presetBits: string[] = [];
+      if (playerState?.transpose != null && playerState.transpose !== 0) presetBits.push(`${playerState.transpose > 0 ? '+' : ''}${playerState.transpose}`);
+      if (playerState?.capo != null && playerState.capo > 0) presetBits.push(`capo ${playerState.capo}`);
+      onDone?.(`Added to "${pl.name}"${presetBits.length ? ` (${presetBits.join(', ')})` : ''}`);
     } catch (e: any) {
       onDone?.(`Failed: ${e.message}`);
     } finally {

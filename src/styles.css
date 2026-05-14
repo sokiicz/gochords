@@ -222,6 +222,21 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
   box-shadow: inset 3px 0 0 var(--accent);
 }
 .nav-lock { margin-left: auto; color: rgba(245, 235, 215, 0.3); }
+.nav-badge {
+  margin-left: auto;
+  background: #d24a3b;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
 
 .nav-import {
   margin: 16px 14px 0;
@@ -992,6 +1007,8 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
 }
 .key-pill-inst { text-transform: capitalize; border-color: var(--accent); color: var(--accent); }
 .key-pill-readonly { background: var(--text-dim); color: var(--bg); border-color: var(--text-dim); }
+.key-pill-preset { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+.card-pill-preset { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
 
 /* Used-chords strip */
 .chords-strip {

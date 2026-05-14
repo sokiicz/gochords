@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import type { Instrument } from './lib/chords';
 import {
   loadSongs, saveSongs, loadPrefs, savePrefs, newId,
@@ -18,27 +18,60 @@ import { NavSidebar } from './components/NavSidebar';
 import { Toasts, type Toast } from './components/Toasts';
 import { SignInModal } from './components/AuthMenu';
 import { Icon } from './components/Icon';
+
+// BrowsePage is eager — it's the default route + most-common landing.
+// Everything else is route-level code-split. Vite resolves each `import('./views/X')`
+// into its own JS chunk; first paint downloads only what the current route needs.
 import { BrowsePage } from './views/BrowsePage';
-import { LibraryPage } from './views/LibraryPage';
-import { SongPlayerPage } from './views/SongPlayerPage';
-import { SongFormPage, type SongFormDraft } from './views/SongFormPage';
-import { PlaylistsPage } from './views/PlaylistsPage';
-import { PlaylistDetailPage } from './views/PlaylistDetailPage';
-import { CommunitiesPage } from './views/CommunitiesPage';
-import { CommunityDetailPage } from './views/CommunityDetailPage';
-import { JoinPage } from './views/JoinPage';
-import { ProfilePage } from './views/ProfilePage';
-import { ArtistPage } from './views/ArtistPage';
-import { ContributionsPage } from './views/ContributionsPage';
-import { UserProfilePage } from './views/UserProfilePage';
-import { FollowingPage } from './views/FollowingPage';
-import { UpdatesPage } from './views/UpdatesPage';
+const LibraryPage         = lazy(() => import('./views/LibraryPage').then((m) => ({ default: m.LibraryPage })));
+const SongPlayerPage      = lazy(() => import('./views/SongPlayerPage').then((m) => ({ default: m.SongPlayerPage })));
+const SongFormPage        = lazy(() => import('./views/SongFormPage').then((m) => ({ default: m.SongFormPage })));
+const PlaylistsPage       = lazy(() => import('./views/PlaylistsPage').then((m) => ({ default: m.PlaylistsPage })));
+const PlaylistDetailPage  = lazy(() => import('./views/PlaylistDetailPage').then((m) => ({ default: m.PlaylistDetailPage })));
+const CommunitiesPage     = lazy(() => import('./views/CommunitiesPage').then((m) => ({ default: m.CommunitiesPage })));
+const CommunityDetailPage = lazy(() => import('./views/CommunityDetailPage').then((m) => ({ default: m.CommunityDetailPage })));
+const JoinPage            = lazy(() => import('./views/JoinPage').then((m) => ({ default: m.JoinPage })));
+const ProfilePage         = lazy(() => import('./views/ProfilePage').then((m) => ({ default: m.ProfilePage })));
+const ArtistPage          = lazy(() => import('./views/ArtistPage').then((m) => ({ default: m.ArtistPage })));
+const ContributionsPage   = lazy(() => import('./views/ContributionsPage').then((m) => ({ default: m.ContributionsPage })));
+const UserProfilePage     = lazy(() => import('./views/UserProfilePage').then((m) => ({ default: m.UserProfilePage })));
+const FollowingPage       = lazy(() => import('./views/FollowingPage').then((m) => ({ default: m.FollowingPage })));
+const UpdatesPage         = lazy(() => import('./views/UpdatesPage').then((m) => ({ default: m.UpdatesPage })));
+
+// Drag SongFormDraft type from the source (lazy import doesn't surface types eagerly).
+import type { SongFormDraft } from './views/SongFormPage';
+
+// Route-name → dynamic import factory. Used to *preload* the chunk for the
+// current route on mount, so the Suspense fallback never shows on direct deep
+// links (e.g. someone landing on a pre-rendered /song/<id>). The browser
+// module cache means React.lazy's later import resolves instantly.
+const ROUTE_PRELOADS: Record<string, () => Promise<unknown>> = {
+  library:        () => import('./views/LibraryPage'),
+  song:           () => import('./views/SongPlayerPage'),
+  edit:           () => import('./views/SongFormPage'),
+  import:         () => import('./views/SongFormPage'),
+  playlists:      () => import('./views/PlaylistsPage'),
+  playlist:       () => import('./views/PlaylistDetailPage'),
+  communities:    () => import('./views/CommunitiesPage'),
+  community:      () => import('./views/CommunityDetailPage'),
+  join:           () => import('./views/JoinPage'),
+  profile:        () => import('./views/ProfilePage'),
+  artist:         () => import('./views/ArtistPage'),
+  contributions:  () => import('./views/ContributionsPage'),
+  user:           () => import('./views/UserProfilePage'),
+  following:      () => import('./views/FollowingPage'),
+  updates:        () => import('./views/UpdatesPage'),
+};
 
 export default function App() {
   const auth = useAuth();
   const signedIn = auth.status === 'signed-in';
   const userId = auth.user?.id ?? null;
   const route = useHashRoute();
+
+  // Preload the chunk for the current route as soon as the route name is known.
+  // Fire-and-forget; failures are harmless (Suspense fallback covers).
+  useEffect(() => { ROUTE_PRELOADS[route.name]?.(); }, [route.name]);
 
   const [localSongs, setLocalSongs] = useState<StoredSong[]>(() => loadSongs());
 
@@ -456,7 +489,7 @@ export default function App() {
         <Icon name="menu" />
       </button>
       <div className="main-area">
-        {main}
+        <Suspense fallback={<PageLoading />}>{main}</Suspense>
       </div>
       {signInModal && <SignInModal reason={signInModal.reason} onClose={() => setSignInModal(null)} />}
       <Toasts toasts={toasts} onDismiss={dismissToast} />

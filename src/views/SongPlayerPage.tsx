@@ -3,17 +3,20 @@ import { parse, uniqueChords } from '../lib/parser';
 import { effectiveKey, effectiveShift, simplifySong, transposeSong } from '../lib/transpose';
 import { parseArtists, slugify } from '../lib/search';
 import { fetchProfile, type Profile } from '../lib/profile';
-import { routeHref } from '../lib/router';
+import { routeHref, parseHashQuery } from '../lib/router';
 import { adaptTabsForInstrument } from '../lib/tabConvert';
 import type { Instrument } from '../lib/chords';
 import { isEditable, type Song } from '../lib/songModel';
+import { chordStats } from '../lib/difficulty';
 import type { DiagramSize } from '../lib/storage';
 import { fetchSongState, upsertSongState } from '../lib/cloudSongs';
 import { loadSongState, saveSongState } from '../lib/storage';
+import { fetchPlaylistSongState, type PlaylistSongState } from '../lib/playlists';
 import { ControlsBar } from '../components/ControlsBar';
 import { ChordSheet } from '../components/ChordSheet';
 import { ChordDiagramPopup } from '../components/ChordDiagramPopup';
 import { UsedChordsStrip } from '../components/UsedChordsStrip';
+import { MetaTags, songMeta } from '../components/MetaTags';
 import { Icon } from '../components/Icon';
 import { SongActionsMenu } from '../components/SongActionsMenu';
 import { useKeyboard } from '../hooks/useKeyboard';
@@ -70,33 +73,52 @@ export function SongPlayerPage(p: Props) {
   const stateSaveTimer = useRef<number | null>(null);
   const skipNextStateSave = useRef(false);
 
-  // Load per-song state when the song changes
+  const [playlistPreset, setPlaylistPreset] = useState<PlaylistSongState | null>(null);
+  const [playlistId, setPlaylistId] = useState<string | null>(null);
+
+  // Load per-song state when the song changes. Precedence per PLAN.md:
+  // jam > playlist > URL > local > default. URL = `?t&c`, playlist = preset
+  // attached to the playlist_songs row identified by `?playlist=<id>`.
   useEffect(() => {
     skipNextStateSave.current = true;
     setScrollPlaying(false);
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
 
+    const qp = parseHashQuery();
+    const urlT = qp.has('t') ? clampTranspose(Number(qp.get('t')) || 0) : null;
+    const urlC = qp.has('c') ? Math.max(0, Math.min(11, Number(qp.get('c')) || 0)) : null;
+    const pid = qp.get('playlist');
+    setPlaylistId(pid);
+
+    const apply = (t: number, c: number, simp: boolean, preset: PlaylistSongState | null) => {
+      // Playlist preset (if present) overrides URL overrides local.
+      const finalT = preset?.transpose ?? urlT ?? t;
+      const finalC = preset?.capo ?? urlC ?? c;
+      setTranspose(finalT);
+      setCapo(finalC);
+      setSimplify(simp);
+      setPlaylistPreset(preset);
+    };
+
+    const localOrDefault = (): { t: number; c: number; simp: boolean } => {
+      const s = loadSongState(song.id);
+      return { t: s.transpose, c: s.capo ?? song.defaultCapo, simp: s.simplify };
+    };
+
+    const presetPromise = pid && song.origin === 'cloud'
+      ? fetchPlaylistSongState(pid, song.id).catch(() => null)
+      : Promise.resolve(null);
+
     if (song.origin === 'cloud' && signedIn) {
-      fetchSongState(song.id).then((s) => {
-        if (s) {
-          setTranspose(s.transpose);
-          setCapo(s.capo);
-          setSimplify(s.simplify);
-        } else {
-          setTranspose(0);
-          setCapo(song.defaultCapo);
-          setSimplify(false);
-        }
-      }).catch(() => {
-        setTranspose(0);
-        setCapo(song.defaultCapo);
-        setSimplify(false);
+      Promise.all([fetchSongState(song.id).catch(() => null), presetPromise]).then(([s, preset]) => {
+        if (s) apply(s.transpose, s.capo, s.simplify, preset);
+        else apply(0, song.defaultCapo, false, preset);
       });
     } else {
-      const s = loadSongState(song.id);
-      setTranspose(s.transpose);
-      setCapo(s.capo ?? song.defaultCapo);
-      setSimplify(s.simplify);
+      presetPromise.then((preset) => {
+        const lod = localOrDefault();
+        apply(lod.t, lod.c, lod.simp, preset);
+      });
     }
   }, [song.id, signedIn]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -133,6 +155,7 @@ export function SongPlayerPage(p: Props) {
     return s;
   }, [parsed, transpose, capo, simplify, p.instrument, song.originalKey, song.defaultCapo]);
   const usedChords = useMemo(() => uniqueChords(displaySong), [displaySong]);
+  const stats = useMemo(() => chordStats(song), [song.source]);
 
   // Collapse the full controls when the user has scrolled past the top.
   useEffect(() => {
@@ -224,6 +247,7 @@ export function SongPlayerPage(p: Props) {
 
   return (
     <div className={'player' + (collapsed ? ' player-collapsed' : '')}>
+      <MetaTags {...songMeta(song)} />
       <ControlsBar
         transpose={transpose}
         capo={capo}
@@ -272,6 +296,15 @@ export function SongPlayerPage(p: Props) {
             aria-label="Auto-scroll speed"
             title={`Speed ${p.scrollSpeed}`}
           />
+          <button
+            className={`icon-btn ${p.stickyChords ? 'icon-btn-on' : ''}`}
+            onClick={p.onToggleStickyChords}
+            aria-pressed={p.stickyChords}
+            aria-label="Pin chord strip while scrolling"
+            title="Pin chord diagrams to the top while scrolling"
+          >
+            <Icon name="pin" size={14} />
+          </button>
         </div>
       )}
 
@@ -305,7 +338,43 @@ export function SongPlayerPage(p: Props) {
                   onToggleLike={p.onToggleLike}
                   onRequireSignIn={p.onRequireSignIn}
                   onDone={(msg) => msg && p.onToast(msg)}
+                  playerState={{
+                    transpose,
+                    capo,
+                    diagramSize: p.diagramSize === 'sm' ? 'S' : p.diagramSize === 'lg' ? 'L' : 'M',
+                  }}
                 />
+                <button className="ghost-btn" onClick={async () => {
+                  const params = new URLSearchParams();
+                  if (transpose !== 0) params.set('t', String(transpose));
+                  if (capo !== song.defaultCapo) params.set('c', String(capo));
+                  const q = params.toString();
+                  // Clean URL — the path-to-hash bridge in index.html unpacks it
+                  // into the SPA's hash router on landing. Cleaner for share previews.
+                  const url = `https://gochords.online/song/${encodeURIComponent(song.id)}${q ? `?${q}` : ''}`;
+                  const withState = !!q;
+                  const title = `${song.title} — ${song.artist} chords`;
+
+                  // Mobile native share sheet when available.
+                  if (typeof navigator !== 'undefined' && (navigator as any).share) {
+                    try {
+                      await (navigator as any).share({ title, url });
+                      return;
+                    } catch (e: any) {
+                      // AbortError = user dismissed; don't fall through to clipboard
+                      if (e?.name === 'AbortError') return;
+                    }
+                  }
+                  try {
+                    await navigator.clipboard.writeText(url);
+                    p.onToast(withState ? 'Share link copied (preserves your key & capo)' : 'Share link copied');
+                  } catch {
+                    // Final fallback: prompt with the URL pre-selected so the user can copy manually.
+                    window.prompt('Copy this share link:', url);
+                  }
+                }} title="Share this chord sheet (preserves transpose / capo)">
+                  <Icon name="share" size={14} /> Share
+                </button>
                 {isEditable(song, userId) ? (
                   <button className="ghost-btn" onClick={() => p.onEdit(song)} title="Edit song (⌘E)">
                     <Icon name="edit" size={14} /> Edit
@@ -329,6 +398,18 @@ export function SongPlayerPage(p: Props) {
             )}
             {capo > 0 && <span className="key-pill">Capo {capo}</span>}
             {transpose !== 0 && <span className="key-pill">{transpose > 0 ? `+${transpose}` : transpose}</span>}
+            {playlistId && playlistPreset && (
+              <span className="key-pill key-pill-preset" title="Settings stored on this playlist entry">
+                Playlist preset
+                {playlistPreset.transpose != null && playlistPreset.transpose !== 0 && ` ${playlistPreset.transpose > 0 ? '+' : ''}${playlistPreset.transpose}`}
+                {playlistPreset.capo != null && playlistPreset.capo > 0 && ` · Cap.${playlistPreset.capo}`}
+              </span>
+            )}
+            {stats.unique > 0 && (
+              <span className="key-pill" title={`${stats.unique} unique chord${stats.unique === 1 ? '' : 's'}${stats.barre ? `, ${stats.barre} typically barre` : ''}`}>
+                {stats.unique} chord{stats.unique === 1 ? '' : 's'}{stats.barre > 0 && ` · ${stats.barre} barre`}
+              </span>
+            )}
             <span className="key-pill key-pill-inst">{p.instrument}</span>
             {simplify && <span className="key-pill">Simplified</span>}
             {song.visibility === 'private' && <span className="key-pill">Private</span>}
