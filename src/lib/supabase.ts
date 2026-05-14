@@ -1,7 +1,11 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-const URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const ANON = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+// `import.meta.env` is injected by Vite at build time; in plain Node (test scripts)
+// it's undefined, which would throw at module load. Guard the access so the module
+// can be imported in both environments.
+const env = (import.meta as any).env ?? {};
+const URL = env.VITE_SUPABASE_URL as string | undefined;
+const ANON = env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
 export const cloudEnabled = Boolean(URL && ANON);
 
@@ -15,10 +19,18 @@ export const supabase: SupabaseClient | null = cloudEnabled
     })
   : null;
 
+let testClient: SupabaseClient | null = null;
+
 /** Convenience for callers that have already gated on `cloudEnabled`. */
 export function requireSupabase(): SupabaseClient {
+  if (testClient) return testClient;
   if (!supabase) throw new Error('Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env.local');
   return supabase;
+}
+
+/** Test-only: swap the client returned by `requireSupabase`. Pass `null` to clear. */
+export function _setSupabaseForTests(client: SupabaseClient | null) {
+  testClient = client;
 }
 
 // =============================================================================
