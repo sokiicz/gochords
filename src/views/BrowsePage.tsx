@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
-import { fetchCatalog, subscribeCatalog, type CatalogSort, type CloudSong } from '../lib/cloudSongs';
+import { fetchCatalog, subscribeCatalog, searchSongs, type CatalogSort, type CloudSong } from '../lib/cloudSongs';
 import { fetchMyLikedSongIds, likeSong, unlikeSong } from '../lib/likes';
 import { fromCloud, type Song } from '../lib/songModel';
 import { cloudEnabled } from '../lib/supabase';
 import { navigate } from '../lib/router';
-import { matches } from '../lib/search';
 import { LANG_CODES, LANG_LABELS, type LangCode } from '../lib/language';
 import { Icon } from '../components/Icon';
 import { SongCard } from '../components/SongCard';
 import { SkeletonGrid } from '../components/Skeleton';
+import { MetaTags, catalogMeta } from '../components/MetaTags';
 
 const SORTS: { id: CatalogSort; label: string }[] = [
   { id: 'newest', label: 'Newest' },
@@ -34,11 +34,13 @@ export function BrowsePage({ signedIn, onImport, onRequireSignIn, onToast }: Pro
   const [activeLang, setActiveLang] = useState<LangCode | ''>('');
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
 
-  // Fetch the full catalog (sorted) and filter client-side so diacritics, ampersands,
-  // and "and/a" alternatives all match. Cap at 500 — when the catalog grows past that,
-  // search will need to move to server-side via Postgres' unaccent extension.
+  // Fetch the full catalog (sorted) when there is no search query. Server-side
+  // search via `searchSongs` (Sprint 4 migration 0010) handles non-empty queries
+  // — that path bypasses the 500-row client-side cap. The realtime subscription
+  // stays active only on the no-query view; updates land directly there.
   useEffect(() => {
     if (!cloudEnabled) { setLoading(false); return; }
+    if (q.trim()) return; // server-search effect below handles this case
     let cancelled = false;
     setLoading(true);
     fetchCatalog({ sort, limit: 500 })
@@ -53,7 +55,20 @@ export function BrowsePage({ signedIn, onImport, onRequireSignIn, onToast }: Pro
       });
     });
     return () => { cancelled = true; unsub(); };
-  }, [sort]);
+  }, [sort, q]);
+
+  // Debounced server-side search. Active whenever the query is non-empty.
+  useEffect(() => {
+    if (!cloudEnabled || !q.trim()) return;
+    let cancelled = false;
+    setLoading(true);
+    const handle = window.setTimeout(() => {
+      searchSongs(q, 100)
+        .then((rows) => { if (!cancelled) { setSongs(rows); setLoading(false); } })
+        .catch((e) => { if (!cancelled) { setErr(e.message); setLoading(false); } });
+    }, 200);
+    return () => { cancelled = true; clearTimeout(handle); };
+  }, [q]);
 
   // Trending (only on default view)
   useEffect(() => {
@@ -88,12 +103,14 @@ export function BrowsePage({ signedIn, onImport, onRequireSignIn, onToast }: Pro
   }, [songs, LANG_SET]);
 
   const filtered = useMemo(() => {
+    // When q is non-empty, `songs` already came from server-side search
+    // (or its ilike fallback); no client-side title/artist filter needed.
+    // Tag and language filters still run client-side over the result set.
     let out = songs;
-    if (q.trim()) out = out.filter((s) => matches(q, s.title, s.artist));
     if (activeLang) out = out.filter((s) => (s.tags || []).includes(activeLang));
     if (activeTags.length > 0) out = out.filter((s) => activeTags.every((t) => (s.tags || []).includes(t)));
     return out;
-  }, [songs, activeTags, activeLang, q]);
+  }, [songs, activeTags, activeLang]);
 
   const toggleTag = (tag: string) => {
     setActiveTags((cur) => cur.includes(tag) ? cur.filter((t) => t !== tag) : [...cur, tag]);
@@ -128,6 +145,7 @@ export function BrowsePage({ signedIn, onImport, onRequireSignIn, onToast }: Pro
 
   return (
     <div className="page">
+      <MetaTags {...catalogMeta()} />
       {showHero && (
         <section className="browse-hero">
           <div className="browse-hero-eyebrow">GoChords · Catalog</div>

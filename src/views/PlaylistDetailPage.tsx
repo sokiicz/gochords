@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
-import { fetchPlaylist, listPlaylistSongs, removeSongFromPlaylist, deletePlaylist, type Playlist } from '../lib/playlists';
+import { fetchPlaylist, listPlaylistEntries, removeSongFromPlaylist, deletePlaylist, type Playlist, type PlaylistEntry } from '../lib/playlists';
 import { fromCloud, type Song } from '../lib/songModel';
-import type { CloudSong } from '../lib/cloudSongs';
 import { navigate, navigateBack } from '../lib/router';
 import { Icon } from '../components/Icon';
 
@@ -12,14 +11,14 @@ interface Props {
 
 export function PlaylistDetailPage({ playlistId, userId }: Props) {
   const [pl, setPl] = useState<Playlist | null>(null);
-  const [songs, setSongs] = useState<CloudSong[]>([]);
+  const [entries, setEntries] = useState<PlaylistEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
   const load = () => {
     setLoading(true);
-    Promise.all([fetchPlaylist(playlistId), listPlaylistSongs(playlistId)])
-      .then(([p, s]) => { setPl(p); setSongs(s); setLoading(false); })
+    Promise.all([fetchPlaylist(playlistId), listPlaylistEntries(playlistId)])
+      .then(([p, e]) => { setPl(p); setEntries(e); setLoading(false); })
       .catch((e) => { setErr(e.message); setLoading(false); });
   };
 
@@ -30,7 +29,13 @@ export function PlaylistDetailPage({ playlistId, userId }: Props) {
   const handleRemove = async (e: React.MouseEvent, songId: string) => {
     e.stopPropagation();
     await removeSongFromPlaylist(playlistId, songId);
-    setSongs((s) => s.filter((x) => x.id !== songId));
+    setEntries((s) => s.filter((x) => x.song.id !== songId));
+  };
+
+  const openInPlaylistContext = (songId: string) => {
+    // Bypass navigate() so we can attach ?playlist=<id> — the player reads this
+    // on mount and applies the preset stored on this playlist entry.
+    window.location.hash = `#/song/${encodeURIComponent(songId)}?playlist=${encodeURIComponent(playlistId)}`;
   };
 
   const handleDelete = async () => {
@@ -49,7 +54,7 @@ export function PlaylistDetailPage({ playlistId, userId }: Props) {
           <button className="ghost-btn back-btn" onClick={() => navigateBack({ name: 'playlists' })}>← Back</button>
           <h1>{pl.name}</h1>
           <p className="page-sub">
-            {pl.description || (pl.isPublic ? 'Public playlist' : 'Private playlist')} · {songs.length} song{songs.length === 1 ? '' : 's'}
+            {pl.description || (pl.isPublic ? 'Public playlist' : 'Private playlist')} · {entries.length} song{entries.length === 1 ? '' : 's'}
           </p>
         </div>
         {isOwner && (
@@ -61,7 +66,7 @@ export function PlaylistDetailPage({ playlistId, userId }: Props) {
         )}
       </div>
 
-      {songs.length === 0 ? (
+      {entries.length === 0 ? (
         <div className="page-empty">
           <h3>Empty playlist</h3>
           <p>Open a song and use the menu (•••) → "Add to playlist" to drop it in here.</p>
@@ -69,10 +74,13 @@ export function PlaylistDetailPage({ playlistId, userId }: Props) {
         </div>
       ) : (
         <ol className="playlist-list">
-          {songs.map((cs, i) => {
+          {entries.map(({ song: cs, state }, i) => {
             const song: Song = fromCloud(cs);
+            const presetBits: string[] = [];
+            if (state.transpose != null && state.transpose !== 0) presetBits.push(`${state.transpose > 0 ? '+' : ''}${state.transpose}`);
+            if (state.capo != null && state.capo > 0) presetBits.push(`Cap.${state.capo}`);
             return (
-              <li key={song.id} className="playlist-row" onClick={() => navigate({ name: 'song', id: song.id })}>
+              <li key={song.id} className="playlist-row" onClick={() => openInPlaylistContext(song.id)}>
                 <span className="playlist-pos">{i + 1}</span>
                 <div className="playlist-row-info">
                   <div className="playlist-row-title">{song.title}</div>
@@ -80,6 +88,9 @@ export function PlaylistDetailPage({ playlistId, userId }: Props) {
                 </div>
                 <div className="playlist-row-meta">
                   {song.originalKey && <span className="card-pill card-pill-key">{song.originalKey}</span>}
+                  {presetBits.length > 0 && (
+                    <span className="card-pill card-pill-preset" title="Saved preset for this playlist entry">{presetBits.join(' · ')}</span>
+                  )}
                   {song.tempo && <span className="card-pill">{song.tempo} BPM</span>}
                 </div>
                 {isOwner && (

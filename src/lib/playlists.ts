@@ -1,5 +1,5 @@
 import { requireSupabase, type DbPlaylist } from './supabase';
-import type { CloudSong } from './cloudSongs';
+import { cloudSongFromDb, type CloudSong } from './cloudSongs';
 
 export interface Playlist {
   id: string;
@@ -89,38 +89,73 @@ export async function deletePlaylist(id: string): Promise<void> {
   if (error) throw error;
 }
 
+/** Per-(playlist,song) presets persisted alongside the playlist membership row.
+ *  Applied on initial load of `song/:id?playlist=<id>` per the precedence stack
+ *  (jam > playlist > URL > local > default). All optional — missing keys mean
+ *  "use the song defaults". */
+export interface PlaylistSongState {
+  transpose?: number;
+  capo?: number;
+  diagramSize?: 'S' | 'M' | 'L';
+  note?: string | null;
+}
+
+export interface PlaylistEntry {
+  song: CloudSong;
+  state: PlaylistSongState;
+}
+
 export async function listPlaylistSongs(playlistId: string): Promise<CloudSong[]> {
+  const entries = await listPlaylistEntries(playlistId);
+  return entries.map((e) => e.song);
+}
+
+/** Like `listPlaylistSongs` but also returns per-entry preset state. */
+export async function listPlaylistEntries(playlistId: string): Promise<PlaylistEntry[]> {
   const sb = requireSupabase();
   const { data, error } = await sb
     .from('playlist_songs')
-    .select('position, song:songs(*)')
+    .select('position, transpose, capo, diagram_size, note, song:songs(*)')
     .eq('playlist_id', playlistId)
     .order('position', { ascending: true });
   if (error) throw error;
   return (data ?? [])
-    .map((r: any) => r.song)
-    .filter(Boolean)
-    .map((s: any) => ({
-      id: s.id,
-      ownerId: s.owner_id,
-      title: s.title,
-      artist: s.artist,
-      originalKey: s.original_key,
-      source: s.source,
-      visibility: s.visibility,
-      parentId: s.parent_id,
-      createdAt: new Date(s.created_at).getTime(),
-      updatedAt: new Date(s.updated_at).getTime(),
-      defaultCapo: s.default_capo ?? 0,
-      tempo: s.tempo ?? null,
-      tags: s.tags ?? [],
-      likeCount: s.like_count ?? 0,
-      playCount: s.play_count ?? 0,
-      seeded: s.owner_id === null,
+    .filter((r: any) => r.song)
+    .map((r: any) => ({
+      song: cloudSongFromDb(r.song),
+      state: {
+        transpose: typeof r.transpose === 'number' ? r.transpose : undefined,
+        capo: typeof r.capo === 'number' ? r.capo : undefined,
+        diagramSize: r.diagram_size ?? undefined,
+        note: r.note ?? null,
+      },
     }));
 }
 
-export async function addSongToPlaylist(playlistId: string, songId: string): Promise<void> {
+/** Fetch the preset for a single (playlist, song) pair. Null if not in playlist. */
+export async function fetchPlaylistSongState(playlistId: string, songId: string): Promise<PlaylistSongState | null> {
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from('playlist_songs')
+    .select('transpose, capo, diagram_size, note')
+    .eq('playlist_id', playlistId)
+    .eq('song_id', songId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return {
+    transpose: typeof (data as any).transpose === 'number' ? (data as any).transpose : undefined,
+    capo: typeof (data as any).capo === 'number' ? (data as any).capo : undefined,
+    diagramSize: (data as any).diagram_size ?? undefined,
+    note: (data as any).note ?? null,
+  };
+}
+
+export async function addSongToPlaylist(
+  playlistId: string,
+  songId: string,
+  state: PlaylistSongState = {},
+): Promise<void> {
   const sb = requireSupabase();
   // pick next position
   const { data: existing } = await sb
@@ -130,9 +165,35 @@ export async function addSongToPlaylist(playlistId: string, songId: string): Pro
     .order('position', { ascending: false })
     .limit(1);
   const nextPos = (existing && existing[0]?.position != null) ? existing[0].position + 1 : 0;
+  const row: Record<string, any> = { playlist_id: playlistId, song_id: songId, position: nextPos };
+  if (state.transpose !== undefined) row.transpose = state.transpose;
+  if (state.capo !== undefined) row.capo = state.capo;
+  if (state.diagramSize !== undefined) row.diagram_size = state.diagramSize;
+  if (state.note !== undefined) row.note = state.note;
   const { error } = await sb
     .from('playlist_songs')
-    .upsert({ playlist_id: playlistId, song_id: songId, position: nextPos }, { onConflict: 'playlist_id,song_id' });
+    .upsert(row, { onConflict: 'playlist_id,song_id' });
+  if (error) throw error;
+}
+
+/** Update the preset for a song already in a playlist. */
+export async function updatePlaylistSongState(
+  playlistId: string,
+  songId: string,
+  state: PlaylistSongState,
+): Promise<void> {
+  const sb = requireSupabase();
+  const patch: Record<string, any> = {};
+  if (state.transpose !== undefined) patch.transpose = state.transpose;
+  if (state.capo !== undefined) patch.capo = state.capo;
+  if (state.diagramSize !== undefined) patch.diagram_size = state.diagramSize;
+  if (state.note !== undefined) patch.note = state.note;
+  if (Object.keys(patch).length === 0) return;
+  const { error } = await sb
+    .from('playlist_songs')
+    .update(patch)
+    .eq('playlist_id', playlistId)
+    .eq('song_id', songId);
   if (error) throw error;
 }
 

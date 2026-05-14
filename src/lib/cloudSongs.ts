@@ -39,6 +39,9 @@ const fromDb = (r: DbSong): CloudSong => ({
   seeded: r.owner_id === null,
 });
 
+/** Shared mapper for any module that joins against `songs`. */
+export { fromDb as cloudSongFromDb };
+
 export type CatalogSort = 'newest' | 'popular' | 'alpha';
 
 export interface CatalogQuery {
@@ -102,6 +105,32 @@ export async function fetchCatalog(query: CatalogQuery = {}): Promise<CatalogPag
   if (error) throw error;
   return { songs: (data ?? []).map(fromDb), cursor: null };
 }
+
+/**
+ * Server-side search using the `search_songs` RPC (Sprint 4, migration 0010).
+ *
+ * Falls back to the client-side `fetchCatalog({ search })` ilike path if the
+ * RPC isn't available — keeps the app working on environments where the
+ * migration hasn't been applied yet. Once 0010 is universal the fallback can
+ * be deleted.
+ */
+export async function searchSongs(q: string, limit = 50): Promise<CloudSong[]> {
+  const term = q.trim();
+  if (!term) return [];
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc('search_songs', { q: term, n: limit });
+  if (!error && Array.isArray(data)) {
+    return (data as DbSong[]).map(fromDb);
+  }
+  // Fallback path. Logged once for diagnostics; do not noise the console.
+  if (!searchFallbackWarned) {
+    searchFallbackWarned = true;
+    console.warn('search_songs RPC unavailable, falling back to ilike. Apply migration 0010_server_search.sql.', error?.message);
+  }
+  const page = await fetchCatalog({ search: term, limit });
+  return page.songs;
+}
+let searchFallbackWarned = false;
 
 /** Public songs owned by a specific user. */
 export async function fetchPublicSongsByOwner(ownerId: string): Promise<CloudSong[]> {
