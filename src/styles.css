@@ -269,23 +269,45 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
   letter-spacing: 0.08em;
 }
 
-/* Mobile menu fab */
+/* Mobile top bar — only renders on mobile (see @media block below). Replaces
+   the earlier floating hamburger so content can't scroll behind a half-opaque
+   FAB. Backdrop-blur keeps it readable over any page content. */
+.mobile-topbar { display: none; }
 .mobile-menu-btn {
-  display: none;
-  position: fixed;
-  top: 16px;
-  left: 16px;
-  z-index: 30;
-  width: 42px;
-  height: 42px;
-  background: var(--bg-1);
+  width: 40px;
+  height: 40px;
+  background: transparent;
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: var(--r);
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  box-shadow: var(--shadow);
   cursor: pointer;
+  flex: 0 0 auto;
+}
+.mobile-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  color: inherit;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: -0.01em;
+}
+.mobile-brand-mark {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: var(--bg-1);
+  border-radius: 7px;
+  font-size: 16px;
+  line-height: 1;
 }
 .nav-backdrop { display: none; }
 
@@ -560,18 +582,27 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
 }
 
 .card {
-  position: relative;
   background: var(--bg-1);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
-  padding: 16px 18px;
+  padding: 14px 16px;
   cursor: pointer;
   transition: transform var(--t-fast) var(--ease),
               box-shadow var(--t-mid) var(--ease),
               border-color var(--t-fast) var(--ease);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  /* Grid keeps the title primary on every screen: title/artist on the left,
+     actions on the right, foot spanning the full width below. Buttons can
+     never overlap the title because they live in their own column. */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'title   actions'
+    'artist  actions'
+    'foot    foot';
+  align-items: start;
+  column-gap: 10px;
+  row-gap: 2px;
+  min-width: 0;
 }
 .card:hover {
   transform: translateY(-1px);
@@ -580,22 +611,25 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
 }
 
 .card-title {
+  grid-area: title;
   font-weight: 600;
   font-size: var(--t-md);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--text);
-  padding-right: 60px;        /* leave room for actions row */
+  min-width: 0;
 }
 .card-artist {
+  grid-area: artist;
   color: var(--text-dim);
   font-size: var(--t-sm);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
-.card-foot { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 4px; }
+.card-foot { grid-area: foot; margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px; }
 .card-pill {
   font-size: var(--t-xs);
   font-weight: 500;
@@ -624,16 +658,14 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
 .card-vis-open    { background: var(--success-bg); color: var(--success); }
 
 .card-actions-row {
-  position: absolute;
-  top: 12px;
-  right: 12px;
+  grid-area: actions;
+  align-self: start;
   display: flex;
   gap: 4px;
   align-items: center;
-  z-index: 2;
+  flex: 0 0 auto;
 }
 .card-delete {
-  position: relative;
   width: 28px;
   height: 28px;
   border: 0;
@@ -1010,20 +1042,28 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
 .key-pill-preset { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
 .card-pill-preset { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
 
-/* Used-chords strip */
+/* Used-chords strip.
+   Diagram tile width is a single CSS var that scales with viewport (clamp).
+   S/M/L variants multiply that var, so ratios stay consistent across sizes
+   and at every screen width. Canvas height = width × 4/3 (the ratio
+   drawFretDiagram is tuned for — top pad for X/O markers, 4 frets below). */
 .chords-strip {
-  margin: 0 0 22px;
-  padding: 8px;
+  --tile-w: clamp(60px, 14vw, 96px);
+  margin: 0 0 18px;
+  padding: 4px;
   background: var(--bg-1);
   border: 1px solid var(--border);
   border-radius: var(--r);
   overflow-x: auto;
 }
-.chords-strip-inner { display: flex; gap: 4px; min-width: max-content; }
+.chords-strip-sm  { --tile-w: clamp(48px, 11vw, 76px); }
+.chords-strip-md  { --tile-w: clamp(60px, 14vw, 96px); }
+.chords-strip-lg  { --tile-w: clamp(84px, 19vw, 132px); }
+.chords-strip-inner { display: flex; gap: 0; min-width: max-content; }
 .chord-tile {
   background: transparent;
   border: 0;
-  padding: 2px 4px;
+  padding: 2px 2px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1033,9 +1073,21 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
   border-radius: var(--r-sm);
 }
 .chord-tile:hover { background: var(--bg-2); }
-.chord-tile-name { font-family: var(--font-mono); font-weight: 700; color: var(--accent); font-size: var(--t-sm); }
-.chord-tile-canvas { width: 72px; height: 96px; }
-.chord-tile-missing { width: 72px; height: 96px; display: flex; align-items: center; justify-content: center; color: var(--text-faint); font-size: var(--t-lg); }
+.chord-tile-name { font-family: var(--font-mono); font-weight: 700; color: var(--accent); font-size: clamp(12px, 1.6vw, var(--t-sm)); min-height: 1.2em; }
+.chord-tile-canvas {
+  width: var(--tile-w);
+  height: calc(var(--tile-w) * 4 / 3);
+  display: block;
+}
+.chord-tile-missing {
+  width: var(--tile-w);
+  height: calc(var(--tile-w) * 4 / 3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  font-size: var(--t-lg);
+}
 
 /* Sheet body */
 .sheet { font-family: var(--font-mono); font-size: var(--sheet-size-1); }
@@ -1993,15 +2045,29 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
   }
   .nav-sidebar-open { transform: translateX(0); }
   .nav-backdrop { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 40; animation: fade-in var(--t-fast) var(--ease-out); }
-  .mobile-menu-btn { display: inline-flex; }
+  .mobile-topbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 14px;
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    background: rgba(251, 246, 233, 0.92);
+    backdrop-filter: saturate(180%) blur(12px);
+    -webkit-backdrop-filter: saturate(180%) blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  :root[data-theme='dark'] .mobile-topbar { background: rgba(26, 24, 18, 0.92); }
 
-  .page { padding: 76px 16px 96px; }
+  /* Pages no longer need top padding — the sticky top bar takes that space. */
+  .page { padding: 16px 16px 96px; }
   .page-header h1 { font-size: var(--t-2xl); }
   .browse-hero { padding: 28px 22px 24px; margin-bottom: 22px; }
   .browse-hero h1 { font-size: clamp(22px, 6vw, 30px); }
   .browse-hero p { font-size: var(--t-md); }
 
-  .controls { padding: 8px 14px 8px 60px; gap: 10px; }
+  .controls { padding: 8px 14px; gap: 10px; }
   .control-label { display: none; }
   .control-scroll { gap: 2px; }
 
@@ -2040,7 +2106,10 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
    ========================================================================= */
 
 /* Anchor reset for nav links / artist pills */
-.nav-brand { text-decoration: none; color: inherit; cursor: pointer; }
+.nav-brand,
+.nav-brand:hover,
+.mobile-brand,
+.mobile-brand:hover { text-decoration: none; color: inherit; cursor: pointer; }
 .nav-link { text-decoration: none; }
 .song-hero-eyebrow a { color: inherit; text-decoration: none; border-bottom: 1px dotted currentColor; }
 .song-hero-eyebrow a:hover { color: var(--accent); border-bottom-color: var(--accent); }
@@ -2052,21 +2121,40 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
 /* Inline notes (*text*) */
 .lyric-note { color: var(--text-dim); font-style: italic; font-size: 0.88em; }
 
+/* Suggestion review panel — shown to a song's owner / admin when other users
+   have submitted forks as suggested edits. */
+.suggestions-panel {
+  background: var(--bg-1);
+  border: 1px solid var(--accent);
+  border-radius: var(--r);
+  padding: 10px 12px;
+  margin-bottom: 18px;
+}
+.suggestions-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.suggestions-empty { color: var(--text-dim); font-size: var(--t-sm); padding: 6px 0; }
+.suggestion-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
+.suggestion-row:first-of-type { border-top: 0; }
+.suggestion-info { min-width: 0; }
+.suggestion-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.suggestion-meta { font-size: var(--t-xs); color: var(--text-dim); margin-top: 2px; }
+.suggestion-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.ghost-btn-accent { border-color: var(--accent); color: var(--accent); }
+
 /* Contributions stats */
 .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 22px; }
 .stat-card { background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--r); padding: 14px 16px; }
 .stat-value { font-family: var(--font-display); font-size: var(--t-2xl); font-weight: 600; line-height: 1; color: var(--text); }
 .stat-label { font-size: var(--t-xs); color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 6px; }
 
-/* Adjustable chord-diagram sizes */
-.chords-strip-sm .chord-tile-canvas,
-.chords-strip-sm .chord-tile-missing { width: 64px; height: 84px; }
-.chords-strip-sm .chord-tile-name { font-size: var(--t-sm); }
-.chords-strip-sm .chord-tile { padding: 8px 8px 6px; }
-.chords-strip-lg .chord-tile-canvas,
-.chords-strip-lg .chord-tile-missing { width: 110px; height: 140px; }
-.chords-strip-lg .chord-tile-name { font-size: var(--t-lg); }
-.chords-strip-lg .chord-tile { padding: 14px 14px 10px; }
+/* S/M/L variants now live on .chords-strip itself via the --tile-w var
+   (defined near the .chords-strip rule above). Nothing per-size needed here. */
 
 /* Chord-line wrapping: each "unit" is an indivisible chord+lyric piece on desktop;
    on mobile the lyric is allowed to wrap so a long unit never overflows the viewport. */
@@ -2132,7 +2220,7 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 6px 14px 6px 56px;
+    padding: 6px 14px;
     background: rgba(251, 246, 233, 0.92);
     backdrop-filter: saturate(180%) blur(12px);
     -webkit-backdrop-filter: saturate(180%) blur(12px);
@@ -2337,18 +2425,11 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
   .chords-strip-sticky { padding: 4px 8px; }
   .chords-strip-sticky .chords-strip-inner { flex-wrap: nowrap; min-width: max-content; }
 
-  /* Mobile tiles obey the readability floors from Sprint 1.D:
-     64×84 SM, 72×96 default, 88×116 LG. Below the SM floor the fretboard
-     collapses to a few pixels and stops being a diagram. */
-  .chords-strip { padding: 6px; }
-  .chords-strip-inner { gap: 4px; }
-  .chord-tile { padding: 4px 4px 2px; gap: 2px; }
-  .chord-tile-canvas, .chord-tile-missing { width: 72px; height: 96px; }
-  .chord-tile-name { font-size: 12px; min-height: 16px; }
-  .chords-strip-sm .chord-tile-canvas,
-  .chords-strip-sm .chord-tile-missing { width: 64px; height: 84px; }
-  .chords-strip-lg .chord-tile-canvas,
-  .chords-strip-lg .chord-tile-missing { width: 88px; height: 116px; }
+  /* Mobile sticky-strip overrides only — the responsive sizing is handled
+     by the clamp() vars at the .chords-strip rule. Don't redeclare widths
+     here or the screen-relative scaling breaks. */
+  .chords-strip { padding: 4px; }
+  .chord-tile { padding: 2px 2px 1px; gap: 2px; }
 
   /* Compact song hero */
   .song-header { margin-bottom: 14px; }
