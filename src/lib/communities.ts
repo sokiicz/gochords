@@ -1,5 +1,5 @@
-import { requireSupabase, type DbCommunity, type CommunityVisibility } from './supabase';
-import type { CloudSong } from './cloudSongs';
+import { requireSupabase, type DbCommunity, type CommunityVisibility, type DbSong } from './supabase';
+import { cloudSongFromDb, type CloudSong } from './cloudSongs';
 
 export type { CommunityVisibility };
 
@@ -142,24 +142,7 @@ export async function listCommunitySongs(communityId: string): Promise<CloudSong
   return (data ?? [])
     .map((r: any) => r.song)
     .filter(Boolean)
-    .map((s: any) => ({
-      id: s.id,
-      ownerId: s.owner_id,
-      title: s.title,
-      artist: s.artist,
-      originalKey: s.original_key,
-      source: s.source,
-      visibility: s.visibility,
-      parentId: s.parent_id,
-      createdAt: new Date(s.created_at).getTime(),
-      updatedAt: new Date(s.updated_at).getTime(),
-      defaultCapo: s.default_capo ?? 0,
-      tempo: s.tempo ?? null,
-      tags: s.tags ?? [],
-      likeCount: s.like_count ?? 0,
-      playCount: s.play_count ?? 0,
-      seeded: s.owner_id === null,
-    }));
+    .map((s: any) => cloudSongFromDb(s as DbSong));
 }
 
 export async function addSongToCommunity(communityId: string, songId: string): Promise<void> {

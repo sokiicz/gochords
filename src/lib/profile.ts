@@ -1,10 +1,13 @@
+import { useEffect, useState } from 'react';
 import { requireSupabase, type DbProfile } from './supabase';
+import { cloudEnabled, supabase } from './supabase';
 
 export interface Profile {
   id: string;
   displayName: string | null;
   handle: string | null;
   createdAt: number;
+  role: 'user' | 'admin';
 }
 
 const fromDb = (r: DbProfile): Profile => ({
@@ -12,7 +15,26 @@ const fromDb = (r: DbProfile): Profile => ({
   displayName: r.display_name,
   handle: r.handle,
   createdAt: new Date(r.created_at).getTime(),
+  role: r.role === 'admin' ? 'admin' : 'user',
 });
+
+/**
+ * Reactive "my profile" hook. Refetches when the auth state changes so the
+ * `role` field stays accurate after sign-in/out. Returns null when signed-out
+ * or cloud disabled.
+ */
+export function useMyProfile(signedIn: boolean): Profile | null {
+  const [profile, setProfile] = useState<Profile | null>(null);
+  useEffect(() => {
+    if (!signedIn || !cloudEnabled || !supabase) { setProfile(null); return; }
+    let cancelled = false;
+    fetchMyProfile()
+      .then((p) => { if (!cancelled) setProfile(p); })
+      .catch(() => { if (!cancelled) setProfile(null); });
+    return () => { cancelled = true; };
+  }, [signedIn]);
+  return profile;
+}
 
 export async function fetchMyProfile(): Promise<Profile | null> {
   const sb = requireSupabase();

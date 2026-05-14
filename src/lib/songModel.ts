@@ -13,6 +13,8 @@ export interface Song {
   visibility: Visibility | 'local';
   ownerId: string | null;
   parentId: string | null;
+  /** When non-null, this song is a pending suggestion targeting that song id. */
+  suggestedFor: string | null;
   seeded: boolean;
   createdAt: number;
   updatedAt: number;
@@ -34,6 +36,7 @@ export function fromCloud(s: CloudSong): Song {
     visibility: s.visibility,
     ownerId: s.ownerId,
     parentId: s.parentId,
+    suggestedFor: s.suggestedFor,
     seeded: s.seeded,
     createdAt: s.createdAt,
     updatedAt: s.updatedAt,
@@ -56,6 +59,7 @@ export function fromLocal(s: StoredSong): Song {
     visibility: 'local',
     ownerId: null,
     parentId: null,
+    suggestedFor: null,
     seeded: s.seeded === true,
     createdAt: s.createdAt,
     updatedAt: s.updatedAt,
@@ -67,8 +71,9 @@ export function fromLocal(s: StoredSong): Song {
   };
 }
 
-export function isEditable(song: Song, userId: string | null): boolean {
+export function isEditable(song: Song, userId: string | null, isAdmin = false): boolean {
   if (song.seeded) return false;
   if (song.origin === 'local') return true; // anon-only local songs
+  if (isAdmin && song.origin === 'cloud') return true;
   return song.ownerId !== null && song.ownerId === userId;
 }

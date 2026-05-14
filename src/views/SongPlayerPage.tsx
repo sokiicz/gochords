@@ -12,6 +12,8 @@ import type { DiagramSize } from '../lib/storage';
 import { fetchSongState, upsertSongState } from '../lib/cloudSongs';
 import { loadSongState, saveSongState } from '../lib/storage';
 import { fetchPlaylistSongState, type PlaylistSongState } from '../lib/playlists';
+import { countSuggestionsFor, listSuggestionsFor, mergeSuggestion, rejectSuggestion, submitSuggestion, withdrawSuggestion } from '../lib/suggestions';
+import type { CloudSong } from '../lib/cloudSongs';
 import { ControlsBar } from '../components/ControlsBar';
 import { ChordSheet } from '../components/ChordSheet';
 import { ChordDiagramPopup } from '../components/ChordDiagramPopup';
@@ -37,6 +39,7 @@ interface Props {
   song: Song;
   signedIn: boolean;
   userId: string | null;
+  isAdmin?: boolean;
   darkMode: boolean;
   fontSize: 0 | 1 | 2;
   scrollSpeed: number;
@@ -75,6 +78,80 @@ export function SongPlayerPage(p: Props) {
 
   const [playlistPreset, setPlaylistPreset] = useState<PlaylistSongState | null>(null);
   const [playlistId, setPlaylistId] = useState<string | null>(null);
+
+  // Suggestion-flow state. Two sides:
+  //  - "I own this fork": offer Submit/Withdraw as a suggestion to song.parentId.
+  //  - "I own/admin the target": show pending suggestions with merge/reject.
+  const [suggestionCount, setSuggestionCount] = useState(0);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [suggestions, setSuggestions] = useState<CloudSong[] | null>(null);
+
+  const ownsThisSong = song.origin === 'cloud' && !!userId && song.ownerId === userId;
+  const canReviewSuggestions = song.origin === 'cloud' && (ownsThisSong || !!p.isAdmin);
+
+  useEffect(() => {
+    if (!canReviewSuggestions) { setSuggestionCount(0); return; }
+    let cancelled = false;
+    countSuggestionsFor(song.id).then((n) => { if (!cancelled) setSuggestionCount(n); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [song.id, canReviewSuggestions]);
+
+  const openSuggestions = async () => {
+    setSuggestionsOpen(true);
+    if (suggestions !== null) return;
+    try {
+      const list = await listSuggestionsFor(song.id);
+      setSuggestions(list);
+    } catch (e: any) {
+      p.onToast(`Couldn't load suggestions: ${e.message}`);
+    }
+  };
+
+  const onMerge = async (suggestionId: string) => {
+    try {
+      await mergeSuggestion(suggestionId);
+      p.onToast('Suggestion merged');
+      setSuggestions((cur) => cur?.filter((s) => s.id !== suggestionId) ?? null);
+      setSuggestionCount((n) => Math.max(0, n - 1));
+      // The merge updated this song's source — easiest correct UX is a refresh.
+      window.location.reload();
+    } catch (e: any) {
+      p.onToast(`Merge failed: ${e.message}`);
+    }
+  };
+
+  const onReject = async (suggestionId: string) => {
+    try {
+      await rejectSuggestion(suggestionId);
+      p.onToast('Suggestion rejected');
+      setSuggestions((cur) => cur?.filter((s) => s.id !== suggestionId) ?? null);
+      setSuggestionCount((n) => Math.max(0, n - 1));
+    } catch (e: any) {
+      p.onToast(`Reject failed: ${e.message}`);
+    }
+  };
+
+  const onSubmitAsSuggestion = async () => {
+    if (!song.parentId) return;
+    try {
+      await submitSuggestion(song.id, song.parentId);
+      p.onToast('Submitted as suggestion. The owner can now review.');
+      // Reload so the UI re-renders with the new suggestedFor state.
+      window.location.reload();
+    } catch (e: any) {
+      p.onToast(`Submit failed: ${e.message}`);
+    }
+  };
+
+  const onWithdraw = async () => {
+    try {
+      await withdrawSuggestion(song.id);
+      p.onToast('Suggestion withdrawn');
+      window.location.reload();
+    } catch (e: any) {
+      p.onToast(`Withdraw failed: ${e.message}`);
+    }
+  };
 
   // Load per-song state when the song changes. Precedence per PLAN.md:
   // jam > playlist > URL > local > default. URL = `?t&c`, playlist = preset
@@ -235,7 +312,7 @@ export function SongPlayerPage(p: Props) {
       transposeDown: () => setTranspose((v) => clampTranspose(v - 1)),
       resetAll,
       openImport: () => {},
-      openEdit: () => { if (isEditable(song, userId)) p.onEdit(song); },
+      openEdit: () => { if (isEditable(song, userId, p.isAdmin)) p.onEdit(song); },
       capoUp: () => setCapo((v) => Math.min(11, v + 1)),
       capoDown: () => setCapo((v) => Math.max(0, v - 1)),
       toggleSimplify: () => setSimplify((v) => !v),
@@ -375,13 +452,28 @@ export function SongPlayerPage(p: Props) {
                 }} title="Share this chord sheet (preserves transpose / capo)">
                   <Icon name="share" size={14} /> Share
                 </button>
-                {isEditable(song, userId) ? (
+                {isEditable(song, userId, p.isAdmin) ? (
                   <button className="ghost-btn" onClick={() => p.onEdit(song)} title="Edit song (⌘E)">
                     <Icon name="edit" size={14} /> Edit
                   </button>
                 ) : (
                   <button className="ghost-btn" onClick={() => p.onFork(song)} title="Make editable copy">
                     <Icon name="duplicate" size={14} /> Fork
+                  </button>
+                )}
+                {ownsThisSong && song.parentId && !song.suggestedFor && (
+                  <button className="ghost-btn" onClick={onSubmitAsSuggestion} title="Submit this fork as a suggested edit to the original">
+                    <Icon name="share" size={14} /> Suggest to original
+                  </button>
+                )}
+                {ownsThisSong && song.suggestedFor && (
+                  <button className="ghost-btn" onClick={onWithdraw} title="Withdraw this suggestion">
+                    <Icon name="close" size={14} /> Withdraw suggestion
+                  </button>
+                )}
+                {canReviewSuggestions && suggestionCount > 0 && (
+                  <button className="ghost-btn ghost-btn-accent" onClick={openSuggestions} title="Review pending suggestions">
+                    <Icon name="bell" size={14} /> {suggestionCount} suggestion{suggestionCount === 1 ? '' : 's'}
                   </button>
                 )}
               </div>
@@ -413,6 +505,7 @@ export function SongPlayerPage(p: Props) {
             <span className="key-pill key-pill-inst">{p.instrument}</span>
             {simplify && <span className="key-pill">Simplified</span>}
             {song.visibility === 'private' && <span className="key-pill">Private</span>}
+            {song.suggestedFor && <span className="key-pill key-pill-preset" title="Pending review by the original's owner">Suggested edit</span>}
             {song.parentId && <span className="key-pill">Fork</span>}
             {song.seeded && <span className="key-pill key-pill-readonly">Demo</span>}
             {song.tempo && <span className="key-pill">{song.tempo} BPM</span>}
@@ -433,6 +526,40 @@ export function SongPlayerPage(p: Props) {
             )}
           </div>
         </header>
+
+        {suggestionsOpen && (
+          <section className="suggestions-panel" aria-label="Pending suggestions">
+            <div className="suggestions-head">
+              <strong>Pending suggestions</strong>
+              <button className="ghost-btn" onClick={() => setSuggestionsOpen(false)} aria-label="Close">
+                <Icon name="close" size={14} />
+              </button>
+            </div>
+            {suggestions === null && <div className="suggestions-empty">Loading…</div>}
+            {suggestions?.length === 0 && <div className="suggestions-empty">No pending suggestions.</div>}
+            {suggestions?.map((s) => (
+              <div key={s.id} className="suggestion-row">
+                <div className="suggestion-info">
+                  <div className="suggestion-title">{s.title}</div>
+                  <div className="suggestion-meta">
+                    {s.artist || 'Unknown'} · updated {relativeTime(s.updatedAt)}
+                  </div>
+                </div>
+                <div className="suggestion-actions">
+                  <a className="ghost-btn" href={`#/song/${encodeURIComponent(s.id)}`} title="Open the suggestion in read view">
+                    Preview
+                  </a>
+                  <button className="primary-btn" onClick={() => onMerge(s.id)} title="Replace this song's content with the suggestion">
+                    <Icon name="check" size={14} /> Merge
+                  </button>
+                  <button className="ghost-btn danger" onClick={() => onReject(s.id)} title="Reject the suggestion (the fork stays as a normal fork)">
+                    Reject
+                  </button>
+                </div>
+              </div>
+            ))}
+          </section>
+        )}
 
         <UsedChordsStrip
           chords={usedChords}

@@ -1,6 +1,6 @@
-import { requireSupabase } from './supabase';
+import { requireSupabase, type DbSong } from './supabase';
 import { fromCloud, type Song } from './songModel';
-import type { CloudSong } from './cloudSongs';
+import { cloudSongFromDb } from './cloudSongs';
 
 export async function fetchMyLikedSongIds(): Promise<Set<string>> {
   const sb = requireSupabase();
@@ -22,26 +22,9 @@ export async function fetchMyLikedSongs(): Promise<Song[]> {
     .order('liked_at', { ascending: false });
   if (error) throw error;
   return (data ?? [])
-    .map((r: any) => r.song as CloudSong | null)
-    .filter((s): s is CloudSong => s !== null)
-    .map((s) => fromCloud({
-      id: s.id,
-      ownerId: (s as any).owner_id ?? null,
-      title: s.title,
-      artist: s.artist,
-      originalKey: (s as any).original_key ?? null,
-      source: s.source,
-      visibility: s.visibility,
-      parentId: (s as any).parent_id ?? null,
-      createdAt: typeof s.createdAt === 'number' ? s.createdAt : new Date((s as any).created_at).getTime(),
-      updatedAt: typeof s.updatedAt === 'number' ? s.updatedAt : new Date((s as any).updated_at).getTime(),
-      defaultCapo: (s as any).default_capo ?? 0,
-      tempo: (s as any).tempo ?? null,
-      tags: (s as any).tags ?? [],
-      likeCount: (s as any).like_count ?? 0,
-      playCount: (s as any).play_count ?? 0,
-      seeded: ((s as any).owner_id ?? null) === null,
-    }));
+    .map((r: any) => r.song)
+    .filter((s: any) => s !== null)
+    .map((s: any) => fromCloud(cloudSongFromDb(s as DbSong)));
 }
 
 export async function likeSong(songId: string): Promise<void> {

@@ -13,6 +13,7 @@ import { fromCloud, fromLocal, type Song } from './lib/songModel';
 import { cloudEnabled } from './lib/supabase';
 import { useAuth } from './lib/auth';
 import { detectLanguage, mergeLanguageTag } from './lib/language';
+import { useMyProfile } from './lib/profile';
 import { navigate, useHashRoute } from './lib/router';
 import { NavSidebar } from './components/NavSidebar';
 import { Toasts, type Toast } from './components/Toasts';
@@ -67,6 +68,8 @@ export default function App() {
   const auth = useAuth();
   const signedIn = auth.status === 'signed-in';
   const userId = auth.user?.id ?? null;
+  const myProfile = useMyProfile(signedIn);
+  const isAdmin = myProfile?.role === 'admin';
   const route = useHashRoute();
 
   // Preload the chunk for the current route as soon as the route name is known.
@@ -449,6 +452,7 @@ export default function App() {
           song={routeSong}
           signedIn={signedIn}
           userId={userId}
+          isAdmin={isAdmin}
           darkMode={darkMode}
           fontSize={fontSize}
           scrollSpeed={scrollSpeed}
@@ -485,9 +489,24 @@ export default function App() {
         onImport={openImport}
         onSignInRequest={() => setSignInModal({})}
       />
-      <button className="mobile-menu-btn" onClick={() => setNavOpen(true)} aria-label="Open menu">
-        <Icon name="menu" />
-      </button>
+      <header className="mobile-topbar" role="banner">
+        <button className="mobile-menu-btn" onClick={() => setNavOpen(true)} aria-label="Open menu">
+          <Icon name="menu" />
+        </button>
+        <a
+          className="mobile-brand"
+          href="#/browse"
+          onClick={(e) => {
+            if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+            e.preventDefault();
+            navigate({ name: 'browse' });
+          }}
+          aria-label="GoChords home"
+        >
+          <span className="mobile-brand-mark">♪</span>
+          <span className="mobile-brand-text">GoChords</span>
+        </a>
+      </header>
       <div className="main-area">
         <Suspense fallback={<PageLoading />}>{main}</Suspense>
       </div>

@@ -9,6 +9,8 @@ export type CloudSong = {
   source: string;
   visibility: Visibility;
   parentId: string | null;
+  /** When non-null, this song is a pending suggestion for the song with this id. */
+  suggestedFor: string | null;
   createdAt: number;
   updatedAt: number;
   defaultCapo: number;
@@ -29,6 +31,7 @@ const fromDb = (r: DbSong): CloudSong => ({
   source: r.source,
   visibility: r.visibility,
   parentId: r.parent_id,
+  suggestedFor: r.suggested_for ?? null,
   createdAt: new Date(r.created_at).getTime(),
   updatedAt: new Date(r.updated_at).getTime(),
   defaultCapo: r.default_capo ?? 0,

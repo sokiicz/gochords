@@ -44,6 +44,7 @@ export interface DbProfile {
   display_name: string | null;
   handle: string | null;
   created_at: string;
+  role?: 'user' | 'admin';
 }
 
 export interface DbSong {
@@ -62,6 +63,7 @@ export interface DbSong {
   tags: string[];
   like_count: number;
   play_count: number;
+  suggested_for?: string | null;
 }
 
 export type CommunityVisibility = 'private' | 'listed' | 'public' | 'open';
