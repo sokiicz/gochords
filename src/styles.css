@@ -2035,6 +2035,7 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
 }
 
 @media (max-width: 800px) {
+  .app-shell { flex-direction: column; }
   .nav-sidebar {
     position: fixed;
     inset: 0 auto 0 0;
