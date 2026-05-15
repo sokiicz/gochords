@@ -5,8 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run sitemap && tsc -b && vite build && npm run prerender",
-    "sitemap": "tsx scripts/generate-sitemap.ts",
+    "build": "tsc -b && vite build && npm run prerender",
     "prerender": "tsx scripts/prerender.ts",
     "preview": "vite preview",
     "audit": "tsx scripts/audit-chords.ts",
