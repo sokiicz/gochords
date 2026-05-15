@@ -8,7 +8,7 @@
 
 // Bump on releases that change index.html (route bridge, meta-tag injection)
 // so returning users drop their stale runtime cache on activate.
-const VERSION = 'v3';
+const VERSION = 'v2';
 const RUNTIME_CACHE = `gochords-runtime-${VERSION}`;
 
 self.addEventListener('install', (event) => {
