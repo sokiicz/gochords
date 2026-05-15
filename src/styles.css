@@ -2076,7 +2076,7 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
   .form-preview { position: static; max-height: none; }
   .form-row { grid-template-columns: 1fr; }
 
-  .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .grid { grid-template-columns: 1fr; gap: 10px; }
   .card { padding: 14px 14px; }
 
   .import-row { grid-template-columns: 1fr; }
