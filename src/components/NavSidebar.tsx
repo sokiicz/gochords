@@ -2,6 +2,7 @@ import { navigate, routeHref, type Route } from '../lib/router';
 import { Icon } from './Icon';
 import { AuthMenu } from './AuthMenu';
 import { useUnreadUpdatesCount } from '../lib/notifications';
+import { useInstallPrompt } from '../hooks/useInstallPrompt';
 
 interface Props {
   route: Route;
@@ -45,6 +46,7 @@ function NavLink({
 export function NavSidebar({ route, cloudEnabled, signedIn, open, onClose, onImport, onSignInRequest }: Props) {
   const is = (n: Route['name']) => route.name === n;
   const unread = useUnreadUpdatesCount(signedIn && cloudEnabled);
+  const { canInstall, install } = useInstallPrompt();
 
   return (
     <>
@@ -105,6 +107,13 @@ export function NavSidebar({ route, cloudEnabled, signedIn, open, onClose, onImp
           <Icon name="plusCircle" size={16} />
           <span>Add a song</span>
         </button>
+
+        {canInstall && (
+          <button className="nav-install" onClick={install}>
+            <Icon name="share" size={16} />
+            <span>Install app</span>
+          </button>
+        )}
 
         <div className="nav-footer">
           {cloudEnabled ? <AuthMenu onSignInRequest={onSignInRequest} /> : <span className="nav-offline">Offline mode</span>}
